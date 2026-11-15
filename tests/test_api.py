@@ -15,6 +15,8 @@ from sonora.web import create_app
 import concurrent.futures
 import threading
 from sonora.guard import (
+    claim_terminal,
+    read_terminal_state,
     RUN_CONFIG_KEY,
     RUN_CONFIG_KIND,
     RunConfig,
@@ -448,7 +450,9 @@ class GuardedSonoraApiTests(unittest.TestCase):
         self.cancel_calls: list[str] = []
         self.cancel_result = True
         self.termination_confirmed = True
+        self.call_state = "pending"
         self.cleanup_calls = []
+        self.cleanup_error = None
         import time
         self.now = time.time()
 
@@ -478,6 +482,12 @@ class GuardedSonoraApiTests(unittest.TestCase):
             self.cancel_calls.append(call_id)
             return self.cancel_result
 
+        def cleanup(*args):
+            self.cleanup_calls.append(args)
+            if self.cleanup_error:
+                raise self.cleanup_error
+
+        self.cleanup = cleanup
         self.enqueue = enqueue
         self.cancel = cancel
         self.app = self.make_app()
@@ -499,7 +509,8 @@ class GuardedSonoraApiTests(unittest.TestCase):
             cancel_generation=cancel or self.cancel,
             require_guard=True,
             generation_termination_confirmed=lambda call_id: self.termination_confirmed,
-            cleanup_cancelled_generation=lambda *args: self.cleanup_calls.append(args),
+            generation_call_state=lambda call_id: self.call_state,
+            cleanup_cancelled_generation=self.cleanup,
         )
 
     def submit(self, client: TestClient | None = None):
@@ -513,6 +524,55 @@ class GuardedSonoraApiTests(unittest.TestCase):
             },
             headers=AUTH_HEADERS,
         )
+
+    def test_remote_timeout_reconciles_failed_without_deleting_files(self) -> None:
+        response = self.submit()
+        job_id = response.json()["job_id"]
+        self.call_state = "failed"
+        status = self.client.get("/api/status/" + job_id, headers=AUTH_HEADERS)
+        self.assertEqual(status.status_code, 200)
+        self.assertEqual(status.json()["status"], "failed")
+        self.assertEqual(self.cleanup_calls, [])
+        self.assertEqual(self.submit().status_code, 409)
+
+    def test_ambiguous_remote_state_does_not_claim_failure(self) -> None:
+        response = self.submit()
+        job_id = response.json()["job_id"]
+        status = self.client.get("/api/status/" + job_id, headers=AUTH_HEADERS)
+        self.assertEqual(status.json()["status"], "queued")
+        self.assertEqual(self.cleanup_calls, [])
+
+    def test_cleanup_error_preserves_cancelled_and_reports_review(self) -> None:
+        job_id = self.submit().json()["job_id"]
+        self.termination_confirmed = False
+        self.client.post("/api/cancel/" + job_id, headers=AUTH_HEADERS)
+        self.termination_confirmed = True
+        self.cleanup_error = RuntimeError("cleanup disk failure")
+        first = self.client.get("/api/status/" + job_id, headers=AUTH_HEADERS)
+        second = self.client.get("/api/status/" + job_id, headers=AUTH_HEADERS)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.json()["status"], "cancelled")
+        self.assertIn("cleanup failed", second.json()["error"])
+        self.assertEqual(len(self.cleanup_calls), 1)
+
+    def test_unknown_remote_state_requests_review_without_terminal_claim(self) -> None:
+        response = self.submit()
+        job_id = response.json()["job_id"]
+        self.call_state = "unknown"
+        status = self.client.get("/api/status/" + job_id, headers=AUTH_HEADERS)
+        self.assertEqual(status.json()["status"], "reconciliation_required")
+        self.assertEqual(self.cleanup_calls, [])
+        self.assertIsNone(read_terminal_state(self.guard_store, self.run_config, job_id))
+
+    def test_interrupted_finalization_requests_review_without_cleanup(self) -> None:
+        response = self.submit()
+        job_id = response.json()["job_id"]
+        claim_terminal(self.guard_store, self.run_config, job_id, "finalizing")
+        self.call_state = "failed"
+        status = self.client.get("/api/status/" + job_id, headers=AUTH_HEADERS)
+        self.assertEqual(status.json()["status"], "reconciliation_required")
+        self.assertIn("manual recovery", status.json()["stage"])
+        self.assertEqual(self.cleanup_calls, [])
 
     def test_guarded_status_rejects_missing_job_identity(self) -> None:
         response = self.submit()
@@ -532,7 +592,8 @@ class GuardedSonoraApiTests(unittest.TestCase):
                 password=TEST_PASSWORD,
                 require_guard=True,
             generation_termination_confirmed=lambda call_id: self.termination_confirmed,
-            cleanup_cancelled_generation=lambda *args: self.cleanup_calls.append(args),
+            generation_call_state=lambda call_id: self.call_state,
+            cleanup_cancelled_generation=self.cleanup,
             )
 
     def test_guarded_generation_persists_call_id_and_consumes_one_attempt(self) -> None:
@@ -704,6 +765,7 @@ class GuardedSonoraApiTests(unittest.TestCase):
         self.assertFalse(status.json()["termination_confirmed"])
         self.assertEqual(self.cleanup_calls, [])
         self.termination_confirmed = True
+        self.call_state = "pending"
         status = self.client.get(f"/api/status/{job_id}", headers=AUTH_HEADERS)
         self.assertEqual(status.json()["status"], "cancelled")
         self.assertTrue(status.json()["termination_confirmed"])
