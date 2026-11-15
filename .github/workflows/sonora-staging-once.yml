@@ -1,0 +1,31 @@
+name: SONORA one-time staging deployment
+on:
+  push:
+    branches: [feat/phase-1-library]
+    paths: [.github/sonora-staging-start.txt]
+permissions:
+  contents: read
+concurrency:
+  group: sonora-staging-one-time-validation
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install pinned CLI in Python 3.12 environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3.12 -m venv .validation-venv
+          .validation-venv/bin/python -m pip install modal==1.6.4
+      - name: Deploy once with watchdog and failure stop
+        shell: bash
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.SONORA_MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.SONORA_MODAL_TOKEN_SECRET }}
+        run: .validation-venv/bin/python scripts/deploy_staging_once.py
