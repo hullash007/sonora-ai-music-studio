@@ -4,7 +4,7 @@ Set-StrictMode -Version Latest
 # Run from the repository root.
 # No Modal imports, network calls, deployments or GPU operations.
 
-$env:PYTHONPATH = "$PWD\backend"
+$env:PYTHONPATH = Join-Path $PWD "backend"
 
 function Invoke-Python {
     param(
@@ -31,13 +31,13 @@ Write-Host "Compiling Python source..."
 Invoke-Python -Arguments @(
     "-m",
     "py_compile",
-    "backend\sonora\library.py",
-    "backend\sonora\web.py",
-    "scripts\run_local_studio.py",
-    "tests\test_api.py",
-    "infra\modal\sonora_staging.py",
-    "tests\test_library.py",
-    "tests\test_staging_isolation.py"
+    "backend/sonora/library.py",
+    "backend/sonora/web.py",
+    "scripts/run_local_studio.py",
+    "tests/test_api.py",
+    "infra/modal/sonora_staging.py",
+    "tests/test_library.py",
+    "tests/test_staging_isolation.py"
 )
 
 Write-Host "All local Phase 1 checks passed."
