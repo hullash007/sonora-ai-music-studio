@@ -6,12 +6,10 @@ staging-specific; this app does not mount or read production storage or secrets.
 
 from __future__ import annotations
 
-import hmac
 import os
 import sys
 import time
 import traceback
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -209,57 +207,6 @@ def generate_track(job_id: str, prompt: str, lyrics: str, duration: int) -> None
         raise
 
 
-HTML_PAGE = r"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SONORA — AI Music Studio</title>
-<style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#10131a;color:#edf1f7;font:16px/1.5 system-ui,Segoe UI,sans-serif}
-main{max-width:900px;margin:36px auto;padding:28px;background:#1a202b;border:1px solid #303b4d;border-radius:18px}
-h1{margin:0 0 6px;font-size:30px}.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#7dd3fc;font-weight:800}
-.sub,.hint,.meta{color:#aeb9c9}.sub{margin:0 0 24px}.hint,.meta{font-size:13px}.field{margin:16px 0}label{display:block;margin-bottom:6px;font-weight:650}
-input,textarea{width:100%;padding:12px 14px;border:1px solid #465369;border-radius:9px;background:#111722;color:#f3f6fb;font:inherit}textarea{min-height:115px;resize:vertical}input[type=number]{max-width:160px}
-button{padding:10px 16px;border:0;border-radius:9px;background:#7dd3fc;color:#082032;font-weight:750;cursor:pointer}button:disabled{opacity:.55;cursor:wait}
-.secondary{background:#293548;color:#eaf2fb}.panel,.track{margin-top:14px;padding:16px;border:1px solid #3c485b;border-radius:10px;background:#131a25}
-.library{margin-top:30px}.library-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.track-title{font-weight:750}.actions{justify-content:flex-start;margin-top:10px}.actions button{font-size:13px}.audio{width:100%;margin-top:14px}.error{color:#fca5a5}.hidden{display:none}a{color:#7dd3fc}
-@media(max-width:640px){main{margin:10px;padding:18px}}
-</style>
-</head><body><main>
-<div class="eyebrow">SONORA · ISOLATED STAGING</div><h1>Create music from an idea.</h1>
-<p class="sub">Phase 1 library test environment. Tracks created here are stored separately from production.</p>
-<form id="musicForm">
-<div class="field"><label for="access">Staging access password</label><input id="access" type="password" autocomplete="current-password" required></div>
-<div class="field"><label for="prompt">Music prompt</label><textarea id="prompt" maxlength="512" required placeholder="Describe genre, mood, instruments, tempo, arrangement and production style."></textarea><div class="hint">Maximum 512 characters.</div></div>
-<div class="field"><label for="lyrics">Lyrics (optional)</label><textarea id="lyrics" maxlength="4096" placeholder="Leave blank for an instrumental track."></textarea></div>
-<div class="field"><label for="duration">Track duration (seconds)</label><input id="duration" type="number" min="10" max="480" value="30" required></div>
-<button id="generate" type="submit">Generate test track</button>
-</form>
-<section id="result" class="panel hidden" aria-live="polite"><div id="status">Ready.</div><div id="job" class="hint"></div></section>
-<section class="library"><div class="library-head"><div><h2>Your staging library</h2><div class="hint">Completed tracks saved in staging storage.</div></div><button id="refresh" class="secondary" type="button">Refresh library</button></div>
-<div id="libraryStatus" class="hint" style="margin-top:12px">Enter your staging password and refresh.</div><div id="tracks"></div><audio id="player" class="audio hidden" controls></audio></section>
-</main><script>
-const form=document.getElementById('musicForm'),generate=document.getElementById('generate');
-const result=document.getElementById('result'),statusEl=document.getElementById('status'),jobEl=document.getElementById('job');
-const libraryStatus=document.getElementById('libraryStatus'),tracksEl=document.getElementById('tracks'),player=document.getElementById('player');
-let pollHandle=null,playerUrl=null;
-function password(){return document.getElementById('access').value}
-async function api(url,options={}){const headers={...(options.headers||{}),'X-Portal-Password':password()};const response=await fetch(url,{...options,headers});if(!response.ok){let detail='Request failed';try{detail=(await response.json()).detail||detail}catch(_){}throw new Error(detail)}return response}
-form.addEventListener('submit',async event=>{event.preventDefault();if(pollHandle)clearInterval(pollHandle);generate.disabled=true;result.classList.remove('hidden');statusEl.textContent='Submitting staging generation job…';jobEl.textContent='';try{
- const response=await api('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:document.getElementById('prompt').value.trim(),lyrics:document.getElementById('lyrics').value,duration:Number(document.getElementById('duration').value)})});
- const data=await response.json();jobEl.textContent='Job ID: '+data.job_id;statusEl.textContent='Queued. Staging GPU worker will start for this job.';
- pollHandle=setInterval(()=>poll(data.job_id),5000);await poll(data.job_id);
- }catch(error){statusEl.textContent=error.message;statusEl.className='error';generate.disabled=false}
-});
-async function poll(id){try{const response=await api('/api/status/'+encodeURIComponent(id));const data=await response.json();statusEl.textContent=data.stage||data.status;if(data.status==='complete'){clearInterval(pollHandle);pollHandle=null;statusEl.textContent='Track saved to your staging library.';generate.disabled=false;await loadLibrary()}else if(data.status==='failed'){clearInterval(pollHandle);pollHandle=null;statusEl.textContent=data.error||'Generation failed';statusEl.className='error';generate.disabled=false}}catch(error){statusEl.textContent='Status check: '+error.message}}
-document.getElementById('refresh').addEventListener('click',loadLibrary);
-async function loadLibrary(){if(!password()){libraryStatus.textContent='Enter your staging password first.';return}libraryStatus.textContent='Loading…';tracksEl.replaceChildren();try{const response=await api('/api/library');const data=await response.json();libraryStatus.textContent=data.count+' saved track(s)';if(!data.tracks.length)libraryStatus.textContent='No tracks yet. Generate a test track to populate this staging library.';for(const track of data.tracks){const card=document.createElement('article');card.className='track';const title=document.createElement('div');title.className='track-title';title.textContent=track.title||'Untitled track';const meta=document.createElement('div');meta.className='meta';meta.textContent=(track.duration_seconds??'—')+' sec · '+(track.created_at?new Date(track.created_at*1000).toLocaleString():'Date unavailable')+' · '+(track.engine||'Music engine');const prompt=document.createElement('div');prompt.className='hint';prompt.textContent=track.prompt||'';const actions=document.createElement('div');actions.className='actions';const play=document.createElement('button');play.type='button';play.textContent='Play';play.addEventListener('click',()=>playTrack(track.job_id));const download=document.createElement('button');download.type='button';download.className='secondary';download.textContent='Download MP3';download.addEventListener('click',()=>downloadTrack(track.job_id,track.filename));actions.append(play,download);card.append(title,meta,prompt,actions);tracksEl.append(card)}}catch(error){libraryStatus.textContent=error.message}}
-async function fetchAudio(id){const response=await api('/api/library/'+encodeURIComponent(id)+'/audio');return response.blob()}
-async function playTrack(id){try{const blob=await fetchAudio(id);if(playerUrl)URL.revokeObjectURL(playerUrl);playerUrl=URL.createObjectURL(blob);player.src=playerUrl;player.classList.remove('hidden');await player.play()}catch(error){libraryStatus.textContent=error.message}}
-async function downloadTrack(id,filename){try{const blob=await fetchAudio(id),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename||'sonora-track.mp3';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){libraryStatus.textContent=error.message}}
-</script></body></html>"""
-
-
 @app.function(
     image=portal_image,
     cpu=1,
@@ -272,116 +219,26 @@ async function downloadTrack(id,filename){try{const blob=await fetchAudio(id),ur
 )
 @modal.asgi_app()
 def music_portal():
+    """Expose the dependency-injected SONORA HTTP app on isolated staging."""
+
     sys.path.insert(0, BACKEND_DIR)
-    from fastapi import FastAPI, Header, HTTPException
-    from fastapi.responses import FileResponse, HTMLResponse
-    from sonora.library import list_track_records, read_track_record, resolve_audio_file
 
-    web = FastAPI(title="SONORA Staging")
+    from sonora.web import create_app
 
-    def verify_password(supplied: str | None) -> None:
-        expected = os.environ.get("PORTAL_PASSWORD", "")
-        if not expected:
-            raise HTTPException(status_code=503, detail="Staging password is not configured")
-        if not supplied or not hmac.compare_digest(supplied, expected):
-            raise HTTPException(status_code=401, detail="Incorrect staging password")
+    def enqueue_generation(
+        job_id: str,
+        prompt: str,
+        lyrics: str,
+        duration: int,
+    ) -> None:
+        """Schedule the existing staging-only GPU generation function."""
+        generate_track.spawn(job_id, prompt, lyrics, duration)
 
-    @web.get("/", response_class=HTMLResponse)
-    def home():
-        return HTML_PAGE
-
-    @web.get("/api/health")
-    def health():
-        return {"status": "ok", "service": "SONORA isolated staging portal"}
-
-    @web.post("/api/generate")
-    def submit_generation(payload: dict, x_portal_password: str | None = Header(default=None)):
-        verify_password(x_portal_password)
-        prompt = str(payload.get("prompt", "")).strip()
-        lyrics = str(payload.get("lyrics", ""))
-        try:
-            duration = int(payload.get("duration", 30))
-        except (TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail="Duration must be a whole number") from exc
-        if not prompt:
-            raise HTTPException(status_code=400, detail="A music prompt is required")
-        if len(prompt) > 512:
-            raise HTTPException(status_code=400, detail="Prompt must be 512 characters or fewer")
-        if len(lyrics) > 4096:
-            raise HTTPException(status_code=400, detail="Lyrics must be 4096 characters or fewer")
-        if not 10 <= duration <= 480:
-            raise HTTPException(status_code=400, detail="Duration must be between 10 and 480 seconds")
-
-        job_id = uuid.uuid4().hex
-        job_store[job_id] = {
-            "job_id": job_id,
-            "status": "queued",
-            "stage": "Waiting for staging GPU worker",
-            "prompt": prompt,
-            "lyrics": lyrics,
-            "duration_seconds": duration,
-            "created_at": time.time(),
-        }
-        try:
-            generate_track.spawn(job_id, prompt, lyrics, duration)
-        except Exception as exc:
-            current = job_store.get(job_id, {})
-            current.update(status="failed", stage="Could not schedule worker", error=str(exc))
-            job_store[job_id] = current
-            raise HTTPException(status_code=503, detail="Could not schedule staging worker") from exc
-        return {"job_id": job_id, "status": "queued"}
-
-    @web.get("/api/status/{job_id}")
-    def status(job_id: str, x_portal_password: str | None = Header(default=None)):
-        verify_password(x_portal_password)
-        try:
-            canonical_id = str(uuid.UUID(job_id))
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail="Job not found") from exc
-        record = job_store.get(canonical_id.replace("-", "")) or job_store.get(canonical_id)
-        if not record:
-            raise HTTPException(status_code=404, detail="Job not found")
-        return {
-            "job_id": record.get("job_id"),
-            "status": record.get("status", "queued"),
-            "stage": record.get("stage", "Waiting for worker"),
-            "error": record.get("error"),
-        }
-
-    @web.get("/api/library")
-    def library(x_portal_password: str | None = Header(default=None)):
-        verify_password(x_portal_password)
-        audio_volume.reload()
-        records = list_track_records(AUDIO_DIR, limit=200)
-        tracks = [
-            {
-                "job_id": record["job_id"],
-                "title": record.get("title") or "Untitled track",
-                "prompt": record.get("prompt", ""),
-                "filename": record.get("filename") or "sonora-track.mp3",
-                "duration_seconds": record.get("duration_seconds"),
-                "created_at": record.get("created_at"),
-                "engine": record.get("engine", "ACE-Step 1.5"),
-            }
-            for record in records
-        ]
-        return {"tracks": tracks, "count": len(tracks)}
-
-    @web.get("/api/library/{job_id}/audio")
-    def library_audio(job_id: str, x_portal_password: str | None = Header(default=None)):
-        verify_password(x_portal_password)
-        audio_volume.reload()
-        record = read_track_record(AUDIO_DIR, job_id)
-        if not record:
-            raise HTTPException(status_code=404, detail="Track not found in staging library")
-        try:
-            audio_path = resolve_audio_file(AUDIO_DIR, record["file"])
-        except (ValueError, FileNotFoundError) as exc:
-            raise HTTPException(status_code=404, detail="Track audio is unavailable") from exc
-        return FileResponse(
-            str(audio_path),
-            media_type="audio/mpeg",
-            filename=record.get("filename") or "sonora-track.mp3",
-        )
-
-    return web
+    return create_app(
+        job_store=job_store,
+        enqueue_generation=enqueue_generation,
+        audio_root=AUDIO_DIR,
+        reload_audio=audio_volume.reload,
+        password=os.environ.get("PORTAL_PASSWORD", ""),
+        model_name="ACE-Step 1.5",
+    )
