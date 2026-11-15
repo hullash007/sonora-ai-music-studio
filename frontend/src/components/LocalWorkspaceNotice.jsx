@@ -1,0 +1,1 @@
+import React from'react';export default function LocalWorkspaceNotice({available=true}){return <div className={'local-notice '+(!available?'warning':'')}><span/>{available?'Saved on this device. Drafts and projects stay in this browser, not in the cloud.':'Browser storage is unavailable. Your workspace will only last for this session.'}</div>}
