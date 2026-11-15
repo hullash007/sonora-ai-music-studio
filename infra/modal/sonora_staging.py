@@ -399,12 +399,7 @@ def music_portal():
     # Default OFF. The key must be explicitly set in the separately managed
     # staging Secret. Absence, blank, or any value other than "true" disables
     # generation before admission is consumed.
-    generation_enabled = (
-        os.environ.get("SONORA_ENABLE_GENERATION", "")
-        .strip()
-        .lower()
-        == "true"
-    )
+    generation_enabled = False  # Public preview is read-only, regardless of Secret.
 
     def enqueue_generation(
         job_id: str,
@@ -493,6 +488,7 @@ def music_portal():
         cleanup_cancelled_generation=cleanup_cancelled_generation,
         generation_call_state=call_result_state,
         require_guard=True,
-        generation_enabled=generation_enabled,
+        generation_enabled=False,
+        public_preview=True,
         fixed_generation_duration_seconds=VALIDATION_DURATION_SECONDS,
     )
