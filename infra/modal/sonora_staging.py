@@ -60,13 +60,30 @@ guard_store = modal.Dict.from_name(
 
 portal_secret = modal.Secret.from_name("sonora-staging-portal")
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-LOCAL_BACKEND = str(REPO_ROOT / "backend")
+# Deploy-source discovery must work when Modal flattens this module to /root.
+REMOTE_BACKEND_DIR = Path(BACKEND_DIR)
+
+
+def _find_local_backend_dir(module_file: str | Path) -> Path | None:
+    for root in Path(module_file).resolve().parents:
+        candidate = root / "backend"
+        if (candidate / "sonora" / "library.py").is_file():
+            return candidate
+    return None
+
+
+LOCAL_BACKEND_DIR = _find_local_backend_dir(__file__)
+BACKEND_IMPORT_DIR = LOCAL_BACKEND_DIR or REMOTE_BACKEND_DIR
+if not (BACKEND_IMPORT_DIR / "sonora" / "library.py").is_file():
+    raise RuntimeError(
+        "SONORA backend not found in local repository or /opt/sonora/backend"
+    )
+if str(BACKEND_IMPORT_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_IMPORT_DIR))
 
 portal_image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install("fastapi==0.162.5")
-    .add_local_dir(LOCAL_BACKEND, remote_path=BACKEND_DIR)
 )
 
 music_image = (
@@ -80,8 +97,14 @@ music_image = (
     .run_commands(
         f"cd {PROJECT_DIR} && uv sync --no-dev --python 3.12"
     )
-    .add_local_dir(LOCAL_BACKEND, remote_path=BACKEND_DIR)
 )
+
+
+# These files are packaged locally into the image. A remote import must not
+# attempt to discover or upload host paths again.
+if LOCAL_BACKEND_DIR is not None:
+    portal_image = portal_image.add_local_dir(str(LOCAL_BACKEND_DIR), remote_path=BACKEND_DIR)
+    music_image = music_image.add_local_dir(str(LOCAL_BACKEND_DIR), remote_path=BACKEND_DIR)
 
 
 @app.function(
