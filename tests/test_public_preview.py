@@ -31,7 +31,7 @@ class PublicPreviewTests(unittest.TestCase):
         self.assertNotIn('server-secret', page.text)
         self.assertNotIn('password()', page.text)
         self.assertNotIn('X-Portal-Password', page.text)
-        self.assertIn('Generation unavailable in preview', page.text)
+        self.assertIn('data-public-preview="true"', page.text)
         self.assertEqual(self.client.get('/api/health').status_code, 200)
         library = self.client.get('/api/library')
         self.assertEqual(library.status_code, 200)
