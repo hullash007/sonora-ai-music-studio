@@ -7,7 +7,8 @@ import sys
 import time
 
 APP_NAME = 'sonora-staging'
-ATTEMPT_KEY = 'sonora:deployment-validation:2026-11-15:public-preview-path-fix-1'
+# Prior immutable guard entries remain in Modal; never delete or re-label them.
+ATTEMPT_KEY = 'sonora:deployment-validation:2026-11-15:ui01-polished-1'
 MAX_BUILD_SECONDS = 900
 
 
