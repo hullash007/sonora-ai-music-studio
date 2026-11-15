@@ -1,19 +1,8 @@
+import {promptPlan,normalizeRecipe} from './promptBudget.js';
 import {characterCount} from './generationContract.js';
-import {normalizeBrief,energyLabel} from './composition.js';
-export function buildEnginePrompt(value,{includeReference=false}={}) {
-  const b=normalizeBrief(value);
-  const parts=[b.prompt.trim()];
-  parts.push(`Style: ${b.mood}.`,`Emotion: ${b.emotion}.`);
-  if(b.instruments.length)parts.push(`Instruments: ${b.instruments.join(', ')}.`);
-  parts.push(`Energy: ${energyLabel(b.energy).toLowerCase()}.`);
-  if(b.tempo!=='No preference'||b.bpm)parts.push(`Tempo: ${b.tempo==='No preference'?'':b.tempo.toLowerCase()}${b.bpm?`${b.tempo==='No preference'?'':' / '}${b.bpm} BPM`:''}.`);
-  if(b.instrumental)parts.push('Instrumental; no vocals.');
-  else {if(b.vocalDirection.trim())parts.push(`Voice: ${b.vocalDirection.trim()}.`);if(b.language.trim())parts.push(`Language: ${b.language.trim()}.`);}
-  if(b.productionNotes.trim())parts.push(`Production: ${b.productionNotes.trim()}`);
-  if(includeReference&&b.reference.trim())parts.push(`Creative reference: ${b.reference.trim()}`);
-  return parts.filter(Boolean).join(' ');
-}
-export function promptIdentity(brief,includeReference=false){return buildEnginePrompt(brief,{includeReference});}
+import {normalizeBrief} from './composition.js';
+export function buildEnginePrompt(value,options={}) {return promptPlan(value,options).text;}
+export function promptIdentity(brief,includeReference=false){return JSON.stringify({text:buildEnginePrompt(brief,{includeReference}),recipe:normalizeRecipe(brief.promptBuilder?.recipe),includeReference});}
 export function previewPayload(brief,prompt){const b=normalizeBrief(brief);return {prompt,lyrics:b.instrumental?'':b.lyrics,duration:b.duration};}
 export function promptErrors(prompt){const errors=[];if(!prompt.trim())errors.push('Write or build a prompt first.');if(characterCount(prompt.trim())>512)errors.push(`${characterCount(prompt.trim())-512} characters over the 512-character engine limit. Shorten the prompt; your full brief is kept.`);return errors;}
 export const templates=[
