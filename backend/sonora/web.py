@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hmac
 import mimetypes
+import re
 import time
 import uuid
 from pathlib import Path
@@ -99,6 +100,7 @@ def create_app(
     cancel_generation: Callable[[str], bool] | None = None,
     require_guard: bool = False,
     generation_enabled: bool = False,
+    public_preview: bool = False,
     fixed_generation_duration_seconds: int | None = None,
     generation_termination_confirmed: Callable[[str], bool] | None = None,
     cleanup_cancelled_generation: Callable[[str, str, str], Any] | None = None,
@@ -125,8 +127,39 @@ def create_app(
     if require_guard and (not callable(generation_termination_confirmed) or not callable(cleanup_cancelled_generation)):
         raise ValueError("Guarded staging requires termination and cleanup adapters")
 
+    if public_preview and generation_enabled:
+        raise ValueError("Public preview cannot enable generation")
     root = Path(audio_root)
-    app = FastAPI(title="SONORA Music Studio")
+    app = FastAPI(
+        title="SONORA Music Studio",
+        docs_url=None if public_preview else "/docs",
+        redoc_url=None if public_preview else "/redoc",
+        openapi_url=None if public_preview else "/openapi.json",
+    )
+    if public_preview:
+        @app.middleware("http")
+        async def read_only_preview(request, call_next):
+            if request.method not in {"GET", "HEAD"}:
+                return JSONResponse(status_code=403, content={"detail": "Generation and changes are disabled in this preview"})
+            path = request.url.path
+            allowed = path in {"/", "/api/health", "/api/library"} or (
+                re.fullmatch(r"/api/library/[a-zA-Z0-9-]+/audio", path) is not None
+            )
+            if not allowed:
+                return JSONResponse(status_code=404, content={"detail": "Not found"})
+            head_request = request.method == "HEAD"
+            if head_request:
+                request.scope["method"] = "GET"
+            response = await call_next(request)
+            if head_request:
+                async def empty_body():
+                    if False:
+                        yield b""
+                response.body_iterator = empty_body()
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            return response
 
     guard_enabled = bool(
         require_guard
@@ -493,6 +526,8 @@ def create_app(
         )
 
     def verify_password(supplied: str | None) -> None:
+        if public_preview:
+            return
         if not password:
             raise HTTPException(
                 status_code=503,
@@ -523,7 +558,20 @@ def create_app(
 
     @app.get("/", response_class=HTMLResponse)
     def home() -> str:
-        return HTML_PAGE
+        if not public_preview:
+            return HTML_PAGE
+        page = HTML_PAGE.replace(
+            '<div class="field"><label for="access">Staging access password</label><input id="access" type="password" autocomplete="current-password" required></div>',
+            '<input id="access" type="hidden" value="">',
+        )
+        page = page.replace("function password(){return document.getElementById('access').value}", "")
+        page = page.replace("const headers={...(options.headers||{}),'X-Portal-Password':password()}", "const headers={...(options.headers||{})}")
+        page = page.replace("if(!password()){libraryStatus.textContent='Enter your staging password first.';return}", "")
+        page = page.replace('<input id="access" type="hidden" value="">', '')
+        page = page.replace('<button id="generate" type="submit">Generate test track</button>', '<button id="generate" type="button" disabled>Generation unavailable in preview</button>')
+        page = page.replace('Enter your staging password and refresh.', 'Your preview library. Generation is switched off.')
+        page = page.replace('</script>', 'loadLibrary();</script>')
+        return page
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
