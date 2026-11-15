@@ -77,7 +77,7 @@ form.addEventListener('submit',async event=>{event.preventDefault();if(pollHandl
  pollHandle=setInterval(()=>poll(data.job_id),5000);await poll(data.job_id);
  }catch(error){statusEl.textContent=error.message;statusEl.className='error';generate.disabled=false}
 });
-async function poll(id){try{const response=await api('/api/status/'+encodeURIComponent(id));const data=await response.json();statusEl.textContent=data.stage||data.status;if(data.status==='complete'){clearInterval(pollHandle);pollHandle=null;statusEl.textContent='Track saved to your staging library.';generate.disabled=false;await loadLibrary()}else if(['failed','cancelled','cancellation_failed'].includes(data.status)){clearInterval(pollHandle);pollHandle=null;statusEl.textContent=data.error||'Generation failed';statusEl.className='error';generate.disabled=false}}catch(error){statusEl.textContent='Status check: '+error.message}}
+async function poll(id){try{const response=await api('/api/status/'+encodeURIComponent(id));const data=await response.json();statusEl.textContent=data.stage||data.status;if(data.status==='complete'){clearInterval(pollHandle);pollHandle=null;statusEl.textContent='Track saved to your staging library.';generate.disabled=false;await loadLibrary()}else if(['failed','cancelled','cancellation_failed','reconciliation_required'].includes(data.status)){clearInterval(pollHandle);pollHandle=null;statusEl.textContent=data.error||'Generation failed';statusEl.className='error';generate.disabled=false}}catch(error){statusEl.textContent='Status check: '+error.message}}
 document.getElementById('refresh').addEventListener('click',loadLibrary);
 async function loadLibrary(){if(!password()){libraryStatus.textContent='Enter your staging password first.';return}libraryStatus.textContent='Loading…';tracksEl.replaceChildren();try{const response=await api('/api/library');const data=await response.json();libraryStatus.textContent=data.count+' saved track(s)';if(!data.tracks.length)libraryStatus.textContent='No tracks yet. Generate a test track to populate this staging library.';for(const track of data.tracks){const card=document.createElement('article');card.className='track';const title=document.createElement('div');title.className='track-title';title.textContent=track.title||'Untitled track';const meta=document.createElement('div');meta.className='meta';meta.textContent=(track.duration_seconds??'—')+' sec · '+(track.created_at?new Date(track.created_at*1000).toLocaleString():'Date unavailable')+' · '+(track.engine||'Music engine');const prompt=document.createElement('div');prompt.className='hint';prompt.textContent=track.prompt||'';const actions=document.createElement('div');actions.className='actions';const play=document.createElement('button');play.type='button';play.textContent='Play';play.addEventListener('click',()=>playTrack(track.job_id));const download=document.createElement('button');download.type='button';download.className='secondary';download.textContent='Download audio';download.addEventListener('click',()=>downloadTrack(track.job_id,track.filename));actions.append(play,download);card.append(title,meta,prompt,actions);tracksEl.append(card)}}catch(error){libraryStatus.textContent=error.message}}
 async function fetchAudio(id){const response=await api('/api/library/'+encodeURIComponent(id)+'/audio');return response.blob()}
@@ -102,6 +102,7 @@ def create_app(
     fixed_generation_duration_seconds: int | None = None,
     generation_termination_confirmed: Callable[[str], bool] | None = None,
     cleanup_cancelled_generation: Callable[[str, str, str], Any] | None = None,
+    generation_call_state: Callable[[str], str] | None = None,
 ) -> FastAPI:
     """Create the SONORA API using injected storage and generation adapters.
 
@@ -448,11 +449,16 @@ def create_app(
                     "claimed_at": time.time(),
                 },
             ):
-                cleanup_cancelled_generation(
-                    job_id,
-                    config.run_id,
-                    request["claim_token"],
-                )
+                try:
+                    cleanup_cancelled_generation(
+                        job_id,
+                        config.run_id,
+                        request["claim_token"],
+                    )
+                except Exception:
+                    # Preserve the confirmed cancellation. Cleanup is not
+                    # retried automatically and its failure stays visible.
+                    _save_job(job_id, cleanup_error="Cancellation confirmed; cleanup failed and requires review")
 
         return True
 
@@ -697,6 +703,7 @@ def create_app(
         stage = record.get("stage", "Waiting for generation worker")
         error = record.get("error")
 
+        recovery_required = False
         if guard_enabled:
             config = _config_for_job(record)
             try:
@@ -711,6 +718,26 @@ def create_app(
                     detail="Staging job state is unavailable",
                 ) from exc
 
+            # Timeout/crash outside the synchronous callback may never update
+            # ordinary job state. Reconcile a positively observed failed call,
+            # but do not delete files here: terminal input is not proof that its
+            # container has stopped. Interrupted finalization needs review.
+            recovery_required = False
+            if (terminal is None or terminal["state"] == "finalizing") and generation_call_state is not None:
+                call_record = _guard_get(_guard_job_key(config, canonical_id, "function-call"))
+                if isinstance(call_record, dict) and isinstance(call_record.get("call_id"), str):
+                    observation = generation_call_state(call_record["call_id"])
+                    if observation == "unknown":
+                        recovery_required = True
+                        stage = "Worker state unconfirmed; manual review required; partial files preserved"
+                    elif observation == "failed":
+                        if terminal is None:
+                            _mark_enqueue_failed(config, canonical_id, RuntimeError("Remote worker terminated before completion; cleanup requires review"))
+                            terminal = read_terminal_state(guard_store, config, canonical_id)
+                            error = "Remote worker stopped before completion; partial files preserved for review"
+                        else:
+                            recovery_required = True
+                            stage = "Worker stopped during finalization; manual recovery required"
             # Guard state wins over stale or late worker writes to job_store.
             if terminal is not None and terminal["state"] == "cancelling":
                 if confirm_cancelled_call(config, canonical_id):
@@ -725,13 +752,18 @@ def create_app(
                     "cancelling": "Cancellation requested; waiting for queue handle or worker reconciliation",
                     "cancelled": "Cancellation confirmed; worker call is terminal",
                     "cancellation_failed": "Cancellation request failed",
-                    "finalizing": "Finalizing generated audio",
+                    "finalizing": stage if recovery_required else "Finalizing generated audio",
                     "complete": "Music generation complete",
                     "failed": "Generation failed",
                 }.get(status, stage)
                 if status not in {"failed", "cancellation_failed"}:
                     error = None
 
+        refreshed = job_store.get(canonical_id)
+        if isinstance(refreshed, dict) and refreshed.get("cleanup_error"):
+            error = refreshed["cleanup_error"]
+        if recovery_required:
+            status = "reconciliation_required"
         return {
             "job_id": canonical_id,
             "status": status,
