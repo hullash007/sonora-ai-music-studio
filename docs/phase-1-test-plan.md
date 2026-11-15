@@ -60,8 +60,8 @@ Local tests do not prove Modal deployment behavior, Volume commit/reload semanti
 
 ## Local verification recorded November 15, 2026
 
-- Python 3.10 unit/API/AST tests pass without importing Modal. Target Python 3.12 is not runtime-tested yet.
+- Python 3.10 and Python 3.12.15 unit/API/AST tests pass (47 tests each) without importing Modal.
 - Headless Chrome: password rejection, fake generation completion, WAV playback (playhead advances), exact WAV download and library refresh persistence pass.
 - Desktop/mobile screenshots inspected, no horizontal clipping. No external browser requests or JavaScript errors observed.
-- PowerShell fail-fast behavior is source-reviewed, not executed on Windows.
+- PowerShell 7.7.0 on Linux: the runner passes with Python 3.12; a fake Python executable returning exit code 7 makes it throw and exit nonzero before the success message. Windows PowerShell itself is not tested. Paths use Join-Path and portable forward slashes.
 - Real MP3 generation, Modal Volume commit/reload and deployment remain untested. No GPU or paid service was used.
