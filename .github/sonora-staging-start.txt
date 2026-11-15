@@ -11,3 +11,7 @@ Above attempt notes are immutable historical records, not present authorization.
 
 UI04 release candidate CPU-only validation2026-11-15 23:46 IST.
 Source tree74b8bff1b585798dd8015e32c2c71325226e534e verified; newclaimui04-rc1-273ab851bf3f. Generation OFF, preserve history.
+
+UI07 release candidate CPU-only validation 2026-11-16 00:36 IST.
+New immutable claim ui07-rc1-b514fa3688c7; generation OFF, no GPU/model invocation or downloads. Preserve every prior claim and attempt record.
+Pretrigger exact source tree verification e3fb45e local matched published remote; deployment event SHA and full tree recorded independently by workflow. Usage before 1.6933014000612499, charges0. Displayed stop4.50 absolute5.00.
