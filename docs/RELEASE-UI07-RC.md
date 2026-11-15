@@ -29,3 +29,11 @@ No backend/API/Modal/GPU/model changes in UI05-07. Generation stays hard OFF in 
 Publication is not deployment. Deployment needs a new immutable claim, fresh usage check, temporary credentials, bounded CPU-only attempt, live acceptance and credential cleanup. Preserve all prior claim records. Displayed usage stop$4.50; absolute cap$5.00, noGPU/model downloads/card charges. Most recently observed usage before this release preparation was1.6930411857387493 credits usage, not a fresh deployment-time meter.
 
 The manifest's source commit precedes this documentation-only commit. Verify exact complete-tree equality at the final publication/deployment revisions, including this manifest and any separately reviewed deployment-claim update.
+
+## Actual browser zoom follow-up
+
+Actual headed Chromium200% page zoom PASS. Clean temporary bundled Chromium profile, minimal local QA-only extension with tabs permission, `chrome.tabs.setZoom`2.0 in automatic/per-tab mode. Asserted getZoom2.0 plus actual DPR1→2 and CSS viewport1439x999→719x499. Keyboard inclusion/select, exact manual editing and rebuild-cancel passed with no horizontal overflow. Captured and inspected actual display pixels, including visible200% browser popover. No application/CSS changes required. Manual zoom mode was rejected as a false positive because it returns2.0 without changing DPR/layout; only the verified automatic-mode result counts.
+
+Real screen-reader audio smoke test: NOT RUN. Windows/NVDA unavailable. Semantics, accessible names/states, keyboard focus and debounced status content were tested; this is not a full accessibility certification.
+
+Browser editor normalization produced a harmless final-brace indentation difference in WorkspaceBackupPanel.jsx. Local commit00cac94 preserves that exact remote whitespace and remote/local complete trees matchedccec737c172fada04dc0f1b77b905ea3439d5640 before this documentation update. Compiled assets and all application behavior are unchanged from the isolated validated source.
