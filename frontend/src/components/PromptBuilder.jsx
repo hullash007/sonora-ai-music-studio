@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {characterCount} from '../lib/generationContract';import Icon from './Icon';import RequestPreflight from './RequestPreflight';
+import {characterCount} from '../lib/generationContract';import Icon from './Icon';import RequestPreflight from './RequestPreflight';import PromptBudget from './PromptBudget';
 import {buildEnginePrompt,promptIdentity,promptErrors,previewPayload} from '../lib/promptBuilder';
 export default function PromptBuilder({brief,setBrief,onNotify}) {
  const [confirmRebuild,setConfirmRebuild]=useState(false),[fallback,setFallback]=useState('');
@@ -11,8 +11,9 @@ export default function PromptBuilder({brief,setBrief,onNotify}) {
  function update(values){setBrief({...brief,promptBuilder:{...editor,...values}});}
  function rebuild(){update({text:assembled,source:promptIdentity(brief,editor.includeReference),manual:false});setConfirmRebuild(false);onNotify('Prompt rebuilt from your brief');}
  async function copy(value,label){try{await navigator.clipboard.writeText(value);onNotify(`${label} copied`);}catch{setFallback(value);onNotify('Clipboard unavailable. Select and copy the text below.');}}
- return <><section id="prompt-builder" tabIndex={-1} className="prompt-builder panel" aria-labelledby="prompt-builder-heading"><div className="section-heading"><div><span className="kicker">05 / PROMPT BUILDER</span><h2 id="prompt-builder-heading">From intent to <em>words.</em></h2></div><span className="tag">LOCAL PROCESSING</span></div><p className="builder-intro">Assemble a description from your choices. Make it your own before using it elsewhere.</p>
+ return <><section id="prompt-builder" tabIndex={-1} className="prompt-builder panel" aria-labelledby="prompt-builder-heading"><div className="section-heading"><div><span className="kicker">06 / PROMPT BUILDER</span><h2 id="prompt-builder-heading">From intent to <em>words.</em></h2></div><span className="tag">LOCAL PROCESSING</span></div><p className="builder-intro">Assemble a description from your choices. Make it your own before using it elsewhere.</p>
  <label className="reference-choice"><input type="checkbox" checked={editor.includeReference} onChange={e=>update({includeReference:e.target.checked})}/><span>Include creative reference<small>Off by default. Your inspiration stays separate unless you choose to include it.</small></span></label>
+ <PromptBudget brief={brief} onChange={update} enginePrompt={text}/>
  <details className="assembled-preview"><summary>Assembled from your brief <span>Deterministic, not AI-generated</span></summary><p>{assembled}</p></details>
  <div className="label-row"><label className="field-label" htmlFor="engine-prompt">Engine prompt <span>{editor.manual?'edited by you':'assembled locally'}</span></label><span className={errors.length?'over-limit':''}>{characterCount(text.trim())} / 512</span></div>
  <textarea id="engine-prompt" value={text} onChange={e=>update({text:e.target.value,source:editor.text===null?promptIdentity(brief,editor.includeReference):editor.source,manual:true})} aria-invalid={!!errors.length} aria-describedby="engine-prompt-status"/>
