@@ -17,11 +17,16 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Install explicit Python 3.12
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
       - name: Install pinned CLI in Python 3.12 environment
         shell: bash
         run: |
           set -euo pipefail
-          python3.12 -m venv .validation-venv
+          python -c 'import sys; assert sys.version_info[:2] == (3, 12), sys.version'
+          python -m venv .validation-venv
           .validation-venv/bin/python -m pip install modal==1.6.4
       - name: Deploy once with watchdog and failure stop
         shell: bash
