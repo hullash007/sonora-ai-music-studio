@@ -7,7 +7,7 @@ import sys
 import time
 
 APP_NAME = 'sonora-staging'
-ATTEMPT_KEY = 'sonora:deployment-validation:2026-11-15:single-attempt'
+ATTEMPT_KEY = 'sonora:deployment-validation:2026-11-15:public-preview-path-fix-1'
 MAX_BUILD_SECONDS = 900
 
 
