@@ -105,8 +105,8 @@ class SonoraApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("SONORA", response.text)
-        self.assertIn('id="musicForm"', response.text)
-        self.assertIn('id="tracks"', response.text)
+        self.assertIn('id="root"', response.text)
+        self.assertIn('data-public-preview="false"', response.text)
 
     def test_health_endpoint_is_public(self) -> None:
         response = self.client.get("/api/health")
