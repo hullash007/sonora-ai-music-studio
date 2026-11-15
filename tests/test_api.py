@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import tempfile
+import concurrent.futures
+import threading
 import unittest
 import uuid
 from pathlib import Path
@@ -10,6 +12,16 @@ from fastapi.testclient import TestClient
 
 from sonora.library import write_track_record
 from sonora.web import create_app
+import concurrent.futures
+import threading
+from sonora.guard import (
+    RUN_CONFIG_KEY,
+    RUN_CONFIG_KIND,
+    RunConfig,
+    validate_run_config,
+)
+
+
 
 
 TEST_PASSWORD = "sonora-local-test-password"
@@ -39,7 +51,7 @@ class SonoraApiTests(unittest.TestCase):
         def reload_audio() -> None:
             self.reload_calls += 1
 
-        self.app = create_app(
+        self.app = create_app(generation_enabled=True,
             job_store=self.job_store,
             enqueue_generation=enqueue_generation,
             audio_root=self.audio_root,
@@ -373,7 +385,7 @@ class SonoraApiTests(unittest.TestCase):
             self.assertNotIn("traceback", response.json())
 
     def test_unconfigured_password_fails_closed(self) -> None:
-        app = create_app(job_store={}, enqueue_generation=lambda *args: None,
+        app = create_app(generation_enabled=True, job_store={}, enqueue_generation=lambda *args: None,
                          audio_root=self.audio_root, reload_audio=lambda: None, password="")
         with TestClient(app) as client:
             self.assertEqual(client.get("/api/library", headers=AUTH_HEADERS).status_code, 503)
@@ -396,6 +408,316 @@ class SonoraApiTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("audio/", response.headers["content-type"])
             self.assertIn("fixture.wav", response.headers["content-disposition"])
+
+
+class FakeAtomicGuardStore:
+    """Thread-safe local fake for the guard's required conditional-put API."""
+
+    def __init__(self) -> None:
+        self.data: dict[str, Any] = {}
+        self.lock = threading.Lock()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        with self.lock:
+            return self.data.get(key, default)
+
+    def put(
+        self,
+        key: str,
+        value: Any,
+        *,
+        skip_if_exists: bool = False,
+    ) -> bool:
+        with self.lock:
+            if skip_if_exists:
+                if key in self.data:
+                    return False
+                self.data[key] = value
+                return True
+            self.data[key] = value
+            return True
+
+
+class GuardedSonoraApiTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory(prefix="sonora-guarded-api-")
+        self.audio_root = Path(self.temp_dir.name)
+        self.guard_store = FakeAtomicGuardStore()
+        self.job_store: dict[str, dict[str, Any]] = {}
+        self.enqueue_calls: list[tuple[str, str, str, int]] = []
+        self.cancel_calls: list[str] = []
+        self.cancel_result = True
+        self.termination_confirmed = True
+        self.cleanup_calls = []
+        import time
+        self.now = time.time()
+
+        self.guard_store.put(
+            RUN_CONFIG_KEY,
+            {
+                "kind": RUN_CONFIG_KIND,
+                "schema_version": 1,
+                "run_id": str(uuid.uuid4()),
+                "issued_at": self.now,
+                "expires_at": self.now + 3600,
+                "max_attempts": 1,
+            },
+            skip_if_exists=True,
+        )
+        self.run_config = validate_run_config(
+            self.guard_store,
+            clock=lambda: self.now,
+            minimum_remaining_seconds=0,
+        )
+
+        def enqueue(job_id: str, prompt: str, lyrics: str, duration: int) -> str:
+            self.enqueue_calls.append((job_id, prompt, lyrics, duration))
+            return f"fake-call-{job_id}"
+
+        def cancel(call_id: str) -> bool:
+            self.cancel_calls.append(call_id)
+            return self.cancel_result
+
+        self.enqueue = enqueue
+        self.cancel = cancel
+        self.app = self.make_app()
+        self.client = TestClient(self.app)
+
+    def tearDown(self) -> None:
+        self.client.close()
+        self.temp_dir.cleanup()
+
+    def make_app(self, *, enqueue=None, cancel=None):
+        return create_app(generation_enabled=True,
+            job_store=self.job_store,
+            enqueue_generation=enqueue or self.enqueue,
+            audio_root=self.audio_root,
+            reload_audio=lambda: None,
+            password=TEST_PASSWORD,
+            guard_store=self.guard_store,
+            run_config_reader=lambda: self.run_config,
+            cancel_generation=cancel or self.cancel,
+            require_guard=True,
+            generation_termination_confirmed=lambda call_id: self.termination_confirmed,
+            cleanup_cancelled_generation=lambda *args: self.cleanup_calls.append(args),
+        )
+
+    def submit(self, client: TestClient | None = None):
+        active_client = client or self.client
+        return active_client.post(
+            "/api/generate",
+            json={
+                "prompt": "A short test prompt",
+                "lyrics": "",
+                "duration": 30,
+            },
+            headers=AUTH_HEADERS,
+        )
+
+    def test_guarded_status_rejects_missing_job_identity(self) -> None:
+        response = self.submit()
+        job_id = response.json()["job_id"]
+        self.job_store[job_id].pop("_guard_config")
+        self.job_store[job_id]["status"] = "complete"
+        status = self.client.get("/api/status/" + job_id, headers=AUTH_HEADERS)
+        self.assertEqual(status.status_code, 503)
+
+    def test_guard_is_required_when_staging_mode_is_required(self) -> None:
+        with self.assertRaises(ValueError):
+            create_app(generation_enabled=True,
+                job_store={},
+                enqueue_generation=lambda *args: "unused",
+                audio_root=self.audio_root,
+                reload_audio=lambda: None,
+                password=TEST_PASSWORD,
+                require_guard=True,
+            generation_termination_confirmed=lambda call_id: self.termination_confirmed,
+            cleanup_cancelled_generation=lambda *args: self.cleanup_calls.append(args),
+            )
+
+    def test_guarded_generation_persists_call_id_and_consumes_one_attempt(self) -> None:
+        first = self.submit()
+        self.assertEqual(first.status_code, 200)
+        job_id = first.json()["job_id"]
+
+        call_records = [
+            value for key, value in self.guard_store.data.items()
+            if key.endswith(":function-call")
+        ]
+        self.assertEqual(len(call_records), 1)
+        self.assertEqual(call_records[0]["call_id"], f"fake-call-{job_id}")
+
+        second = self.submit()
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(len(self.enqueue_calls), 1)
+
+    def test_cancel_requires_authentication(self) -> None:
+        response = self.client.post(f"/api/cancel/{uuid.uuid4()}")
+        self.assertEqual(response.status_code, 401)
+
+    def test_cancel_after_handle_is_persisted(self) -> None:
+        submitted = self.submit()
+        job_id = submitted.json()["job_id"]
+
+        response = self.client.post(
+            f"/api/cancel/{job_id}",
+            headers=AUTH_HEADERS,
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json()["status"], "cancellation_accepted")
+        self.assertFalse(response.json()["termination_confirmed"])
+        status = self.client.get(f"/api/status/{job_id}", headers=AUTH_HEADERS)
+        self.assertEqual(status.json()["status"], "cancelled")
+        self.assertNotIn("claim_token", response.json())
+        self.assertEqual(self.cancel_calls, [f"fake-call-{job_id}"])
+
+    def test_cancel_before_handle_returns_pending_then_enqueue_reconciles(self) -> None:
+        entered_enqueue = threading.Event()
+        release_enqueue = threading.Event()
+
+        def delayed_enqueue(
+            job_id: str,
+            prompt: str,
+            lyrics: str,
+            duration: int,
+        ) -> str:
+            self.enqueue_calls.append((job_id, prompt, lyrics, duration))
+            entered_enqueue.set()
+            if not release_enqueue.wait(timeout=5):
+                raise TimeoutError("test enqueue release timed out")
+            return f"delayed-call-{job_id}"
+
+        app = self.make_app(enqueue=delayed_enqueue)
+        with TestClient(app) as submit_client, TestClient(app) as cancel_client:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                pending_submit = pool.submit(lambda: self.submit(submit_client))
+                self.assertTrue(entered_enqueue.wait(timeout=5))
+
+                job_id = self.enqueue_calls[0][0]
+                pending_cancel = cancel_client.post(
+                    f"/api/cancel/{job_id}",
+                    headers=AUTH_HEADERS,
+                )
+
+                self.assertEqual(pending_cancel.status_code, 202)
+                self.assertEqual(pending_cancel.json()["status"], "cancelling")
+                self.assertTrue(pending_cancel.json()["cancellation_pending"])
+                self.assertEqual(self.cancel_calls, [])
+
+                release_enqueue.set()
+                completed_submit = pending_submit.result(timeout=5)
+
+            self.assertEqual(completed_submit.status_code, 200)
+            self.assertEqual(completed_submit.json()["status"], "cancelling")
+            self.assertEqual(self.cancel_calls, [f"delayed-call-{job_id}"])
+
+            status = cancel_client.get(
+                f"/api/status/{job_id}",
+                headers=AUTH_HEADERS,
+            )
+            self.assertEqual(status.status_code, 200)
+            self.assertEqual(status.json()["status"], "cancelled")
+
+    def test_cancellation_failure_is_not_reported_as_cancelled(self) -> None:
+        submitted = self.submit()
+        job_id = submitted.json()["job_id"]
+        self.cancel_result = False
+
+        response = self.client.post(
+            f"/api/cancel/{job_id}",
+            headers=AUTH_HEADERS,
+        )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["status"], "cancellation_failed")
+
+        status = self.client.get(
+            f"/api/status/{job_id}",
+            headers=AUTH_HEADERS,
+        )
+        self.assertEqual(status.json()["status"], "cancellation_failed")
+
+    def test_guard_state_overrides_stale_worker_job_store_update(self) -> None:
+        submitted = self.submit()
+        job_id = submitted.json()["job_id"]
+        self.client.post(f"/api/cancel/{job_id}", headers=AUTH_HEADERS)
+
+        # Simulate a late/stale worker write into the ordinary job record.
+        self.job_store[job_id] = {
+            **self.job_store[job_id],
+            "status": "complete",
+            "stage": "Late worker update",
+        }
+
+        status = self.client.get(
+            f"/api/status/{job_id}",
+            headers=AUTH_HEADERS,
+        )
+        self.assertEqual(status.status_code, 200)
+        self.assertEqual(status.json()["status"], "cancelled")
+        self.assertNotEqual(status.json()["stage"], "Late worker update")
+
+    def test_failed_or_cancelled_attempt_cannot_enqueue_another_job(self) -> None:
+        first = self.submit()
+        job_id = first.json()["job_id"]
+
+        self.client.post(
+            f"/api/cancel/{job_id}",
+            headers=AUTH_HEADERS,
+        )
+        second = self.submit()
+
+        self.assertEqual(second.status_code, 409)
+        self.assertEqual(len(self.enqueue_calls), 1)
+
+    def test_missing_sentinel_fails_closed_for_new_admission(self) -> None:
+        self.guard_store.data.pop(RUN_CONFIG_KEY, None)
+
+        response = self.submit()
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(self.enqueue_calls, [])
+
+    def test_missing_sentinel_fails_closed_for_cancel(self) -> None:
+        submitted = self.submit()
+        job_id = submitted.json()["job_id"]
+        self.guard_store.data.pop(RUN_CONFIG_KEY, None)
+
+        response = self.client.post(
+            f"/api/cancel/{job_id}",
+            headers=AUTH_HEADERS,
+        )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(self.cancel_calls, [])
+
+
+
+    def test_accepted_cancellation_is_not_confirmed_until_poll_terminal(self):
+        self.termination_confirmed = False
+        job_id = self.submit().json()["job_id"]
+        response = self.client.post(f"/api/cancel/{job_id}", headers=AUTH_HEADERS)
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.json()["status"], "cancellation_accepted")
+        status = self.client.get(f"/api/status/{job_id}", headers=AUTH_HEADERS)
+        self.assertEqual(status.json()["status"], "cancellation_accepted")
+        self.assertFalse(status.json()["termination_confirmed"])
+        self.assertEqual(self.cleanup_calls, [])
+        self.termination_confirmed = True
+        status = self.client.get(f"/api/status/{job_id}", headers=AUTH_HEADERS)
+        self.assertEqual(status.json()["status"], "cancelled")
+        self.assertTrue(status.json()["termination_confirmed"])
+        self.client.get(f"/api/status/{job_id}", headers=AUTH_HEADERS)
+        self.assertEqual(len(self.cleanup_calls), 1)
+        self.assertNotIn("claim_token", status.text)
+
+    def test_default_off_does_not_consume_admission(self):
+        app = create_app(job_store=self.job_store, enqueue_generation=self.enqueue,
+                         audio_root=self.audio_root, reload_audio=lambda: None, password=TEST_PASSWORD)
+        with TestClient(app) as client:
+            response = client.post("/api/generate", json={"prompt": "test"}, headers=AUTH_HEADERS)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(self.enqueue_calls, [])
 
 
 if __name__ == "__main__":
