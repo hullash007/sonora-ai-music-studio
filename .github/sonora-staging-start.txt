@@ -5,3 +5,6 @@ Second setup attempt authorized 2026-11-15 22:08 IST after first failed before M
 Python is now installed explicitly. One retry only; no third attempt.
 Public read-only preview path-fix validation 2026-11-15 22:43 IST.
 New immutable claim; earlier attempt history preserved. Generation OFF.
+UI01 polished CPU-only preview validation 2026-11-15 23:10 IST.
+New claim ui01-polished-1; preserve all earlier claims. No generation or model/GPU calls.
+Above attempt notes are immutable historical records, not present authorization.
