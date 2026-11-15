@@ -17,6 +17,15 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Verify immutable event checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL=$(git rev-parse HEAD)
+          echo "Expected release SHA: $GITHUB_SHA"
+          echo "Actual checkout SHA: $ACTUAL"
+          echo "Remote tree SHA: $(git rev-parse HEAD^{tree})"
+          test "$ACTUAL" = "$GITHUB_SHA"
       - name: Install explicit Python 3.12
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
