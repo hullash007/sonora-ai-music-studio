@@ -36,6 +36,7 @@ Invoke-Python -Arguments @(
     "backend/sonora/worker.py",
     "tests/test_guard.py",
     "tests/test_worker.py",
+    "tests/test_modal_observation.py",
     "backend/sonora/web.py",
     "scripts/run_local_studio.py",
     "tests/test_api.py",
