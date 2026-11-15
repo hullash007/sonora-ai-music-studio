@@ -194,7 +194,7 @@ def main() -> None:
 
     password = os.environ.get("SONORA_LOCAL_PASSWORD", DEFAULT_PASSWORD)
 
-    app = create_app(
+    app = create_app(generation_enabled=True,
         job_store=job_store,
         enqueue_generation=enqueue_generation,
         audio_root=audio_root,
