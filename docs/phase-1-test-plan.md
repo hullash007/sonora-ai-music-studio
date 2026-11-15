@@ -65,3 +65,32 @@ Local tests do not prove Modal deployment behavior, Volume commit/reload semanti
 - Desktop/mobile screenshots inspected, no horizontal clipping. No external browser requests or JavaScript errors observed.
 - PowerShell 7.7.0 on Linux: the runner passes with Python 3.12; a fake Python executable returning exit code 7 makes it throw and exit nonzero before the success message. Windows PowerShell itself is not tested. Paths use Join-Path and portable forward slashes.
 - Real MP3 generation, Modal Volume commit/reload and deployment remain untested. No GPU or paid service was used.
+
+## Guarded staging adapter verification (2026-11-15)
+
+The expanded local suite has 112 passing tests on Python 3.10 and Python 3.12.15.
+The PowerShell 7.7 runner passes on Linux and includes guard/worker compilation.
+Windows has not been tested. These are local tests, not evidence of a successful
+Modal deployment or real model generation.
+
+The worker adapter permits one fixed 30-second validation generation, retries=0,
+single-use containers, max one worker, hard 8-core/32-GiB resource limits, and
+separate 600-second startup and 1200-second execution timeouts. The portal defaults
+to generation disabled. Enablement and its password live only in the separate
+staging Secret. The guard Dict must already exist and contain a separately
+provisioned, fixed one-attempt run sentinel. The deployment code never creates or
+refreshes that sentinel. No production resource names are reused.
+
+Cancellation acceptance is not termination. The HTTP API returns 202 until the
+function call is terminal, then records cancellation and claims cleanup once.
+Unknown poll errors fail closed and require operator review. A malformed job
+without its guard identity returns 503, even if ordinary state claims complete.
+The library preserves completed tracks during cancellation cleanup.
+
+Before any paid execution: publish and fetch-compare the complete tested tree,
+verify staging Secret isolation and current included credits, test the stop path,
+and establish bounded cost monitoring. Never retry or rearm the approved one-run
+validation. Timeouts are not an exact dollar budget; build time, cold starts and
+regional pricing can add cost. Do not claim the code enforces a credit-only or
+exact $2 spending cap. Workspace-level limits are shared with production and
+must not be changed for this validation.
