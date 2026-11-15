@@ -408,25 +408,33 @@ def music_portal():
         call.cancel(terminate_containers=True)
         return True
 
-    def generation_termination_confirmed(call_id: str) -> bool:
-        """Poll whether the FunctionCall has reached a terminal state."""
+    def call_result_state(call_id: str) -> str:
+        """Conservative observation. Unknown exceptions never prove stop."""
         call = modal.FunctionCall.from_id(call_id)
-
         try:
             call.get(timeout=0)
-            return True
+            return "returned"
         except modal.exception.FunctionTimeoutError:
-            # The function itself hit its configured execution timeout.
-            # That call is terminal, even though it did not succeed.
-            return True
+            return "failed"
         except modal.exception.InputCancellation:
-            return True
-        except modal.exception.ExecutionError:
-            # A completed function that raised is also no longer executing.
-            return True
+            return "failed"
         except modal.exception.TimeoutError:
-            # The zero-wait poll found the call still running.
+            return "pending"
+        except Exception:
+            # get() can rethrow arbitrary remote exceptions, but an SDK/RPC or
+            # deserialization problem can also occur. Preserve ambiguity.
+            return "unknown"
+
+    def generation_termination_confirmed(call_id: str) -> bool:
+        """Require both a terminal result and no remaining worker containers."""
+        if call_result_state(call_id) not in {"returned", "failed"}:
             return False
+        stats = generate_track.get_current_stats()
+        return (
+            stats.backlog == 0
+            and stats.num_running_inputs == 0
+            and stats.num_total_runners == 0
+        )
 
     def cleanup_cancelled_generation(
         job_id: str,
@@ -460,6 +468,7 @@ def music_portal():
         cancel_generation=cancel_generation,
         generation_termination_confirmed=generation_termination_confirmed,
         cleanup_cancelled_generation=cleanup_cancelled_generation,
+        generation_call_state=call_result_state,
         require_guard=True,
         generation_enabled=generation_enabled,
         fixed_generation_duration_seconds=VALIDATION_DURATION_SECONDS,
