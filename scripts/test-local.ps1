@@ -1,17 +1,43 @@
 $ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
 
-# Run this script from the repository root. It uses only the local Python
-# interpreter and standard-library test runner. It does not contact Modal.
+# Run from the repository root.
+# No Modal imports, network calls, deployments or GPU operations.
 
 $env:PYTHONPATH = "$PWD\backend"
 
+function Invoke-Python {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments
+    )
+
+    & python @Arguments
+
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -ne 0) {
+        throw "Python command failed with exit code $exitCode : python $($Arguments -join ' ')"
+    }
+}
+
 Write-Host "Python version:"
-python --version
+Invoke-Python -Arguments @("--version")
 
 Write-Host "Running local unit tests..."
-python -m unittest discover -s tests -v
+Invoke-Python -Arguments @("-m", "unittest", "discover", "-s", "tests", "-v")
 
-Write-Host "Compiling local Python source..."
-python -m py_compile backend\sonora\library.py infra\modal\sonora_staging.py
+Write-Host "Compiling Python source..."
+Invoke-Python -Arguments @(
+    "-m",
+    "py_compile",
+    "backend\sonora\library.py",
+    "backend\sonora\web.py",
+    "scripts\run_local_studio.py",
+    "tests\test_api.py",
+    "infra\modal\sonora_staging.py",
+    "tests\test_library.py",
+    "tests\test_staging_isolation.py"
+)
 
-Write-Host "Local Phase 1 checks passed. No deployment or remote calls were made."
+Write-Host "All local Phase 1 checks passed."
