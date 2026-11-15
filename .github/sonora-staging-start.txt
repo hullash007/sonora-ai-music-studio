@@ -8,3 +8,6 @@ New immutable claim; earlier attempt history preserved. Generation OFF.
 UI01 polished CPU-only preview validation 2026-11-15 23:10 IST.
 New claim ui01-polished-1; preserve all earlier claims. No generation or model/GPU calls.
 Above attempt notes are immutable historical records, not present authorization.
+
+UI04 release candidate CPU-only validation2026-11-15 23:46 IST.
+Source tree74b8bff1b585798dd8015e32c2c71325226e534e verified; newclaimui04-rc1-273ab851bf3f. Generation OFF, preserve history.
