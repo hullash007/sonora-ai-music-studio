@@ -1,8 +1,7 @@
 """SONORA isolated staging app.
 
-Generation is disabled unless SONORA_ENABLE_GENERATION=true is present in the
-separately managed staging portal Secret. The run-config sentinel is never
-created or modified by this module.
+Public preview generation is unconditionally disabled. The run-config sentinel
+is never created or modified by this module.
 
 Do not deploy or invoke this app without separate approval.
 """
@@ -396,9 +395,7 @@ def music_portal():
     from sonora.worker import cleanup_confirmed_cancelled_job
     from sonora.web import create_app
 
-    # Default OFF. The key must be explicitly set in the separately managed
-    # staging Secret. Absence, blank, or any value other than "true" disables
-    # generation before admission is consumed.
+    # The public preview cannot dispatch a generation, even if a Secret changes.
     generation_enabled = False  # Public preview is read-only, regardless of Secret.
 
     def enqueue_generation(
