@@ -68,7 +68,7 @@ Local tests do not prove Modal deployment behavior, Volume commit/reload semanti
 
 ## Guarded staging adapter verification (2026-11-15)
 
-The expanded local suite has 112 passing tests on Python 3.10 and Python 3.12.15.
+The expanded local suite has 125 passing tests on Python 3.10 and Python 3.12.15.
 The PowerShell 7.7 runner passes on Linux and includes guard/worker compilation.
 Windows has not been tested. These are local tests, not evidence of a successful
 Modal deployment or real model generation.
@@ -94,3 +94,17 @@ validation. Timeouts are not an exact dollar budget; build time, cold starts and
 regional pricing can add cost. Do not claim the code enforces a credit-only or
 exact $2 spending cap. Workspace-level limits are shared with production and
 must not be changed for this validation.
+
+### Stop-observation hardening
+
+The adapter treats normal return, explicit function timeout/cancellation, pending
+poll timeout, and unknown errors separately. Unknown RPC/runtime/deserialization
+errors never prove stop. Call graphs are not used as a cleanup gate. Cancellation
+cleanup additionally requires live function statistics showing no backlog, no
+running inputs, and zero worker containers. Timeout without cancellation records
+failed where observed, but preserves partial data for manual review. Interrupted
+finalization and unknown call observations report reconciliation_required without
+claiming successful finalization or deleting files. Cleanup failure is persistent
+status information and is never silently retried. Eight AST-extracted adapter
+tests execute the exact nested observation functions without importing Modal or
+contacting its service.
