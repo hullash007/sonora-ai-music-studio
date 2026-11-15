@@ -3,3 +3,5 @@ No retries or rearm. This file must not be edited to trigger another run.
 Generation remains disabled until the separate one-attempt sentinel is provisioned.
 Second setup attempt authorized 2026-11-15 22:08 IST after first failed before Modal.
 Python is now installed explicitly. One retry only; no third attempt.
+Public read-only preview path-fix validation 2026-11-15 22:43 IST.
+New immutable claim; earlier attempt history preserved. Generation OFF.
