@@ -14,6 +14,7 @@ STAGING_FILE = ROOT / "infra" / "modal" / "sonora_staging.py"
 # function bodies. They must not run while Python imports the module.
 FORBIDDEN_CALL_NAMES = {
     "spawn",
+    "cancel",
     "remote",
     "deploy",
     "generate_track",
