@@ -1,0 +1,1 @@
+import React from'react';import Icon from'./Icon';export default function EmptyState({title,children,action,icon='music'}){return <div className="empty-state"><div className="empty-art"><span/><span/><Icon name={icon} size={30}/></div><h3>{title}</h3><p>{children}</p>{action}</div>}

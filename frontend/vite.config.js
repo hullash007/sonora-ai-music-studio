@@ -1,0 +1,2 @@
+import {defineConfig} from 'vite';
+export default defineConfig({plugins:[{name:'stable-final-newline',generateBundle(_options,bundle){for(const item of Object.values(bundle)){if(item.type==='chunk')item.code=item.code.replace(/\n*$/,'\n');}}}],base:'/',server:{proxy:{'/api':'http://127.0.0.1:8766'}},build:{outDir:'../backend/sonora/static',emptyOutDir:true,rollupOptions:{output:{entryFileNames:'assets/app.js',chunkFileNames:'assets/[name].js',assetFileNames:asset=>asset.name?.endsWith('.css')?'assets/app.css':'assets/[name][extname]'}}}});

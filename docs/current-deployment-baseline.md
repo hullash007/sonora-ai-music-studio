@@ -1,4 +1,6 @@
-# Current deployment baseline (reviewed 2026-11-15)
+# Historical production baseline snapshot (reviewed 2026-11-15)
+
+This describes the earlier production portal, not the current SONORA public preview. SONORA UI01-07 is a separate isolated, read-only, generation-disabled staging deployment. See RELEASE-UI07-LIVE.md for its verified identity and limits. Baseline generation claims below were inherited from the earlier technical conversation and are not a new end-to-end GPU verification. Do not read this historical snapshot as permission or readiness to enable SONORA generation.
 
 ## Verified state
 

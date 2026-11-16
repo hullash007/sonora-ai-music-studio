@@ -2,6 +2,16 @@
 
 This roadmap distinguishes current foundations from planned work. A milestone is complete only after implementation and verification.
 
+## Verified overnight status (2026-11-16)
+
+- UI01-07 live as an isolated read-only creative-studio preview. Exact deployment/cost evidence: RELEASE-UI07-LIVE.md.
+- UI08 optional first-session guide implemented and tested locally, not yet published or deployed.
+- Current local suite39 frontend tests,135Python tests on3.10/3.12, contract30, public security65 plus responsive browser suites. These do not prove real GPU generation.
+- Guarded backend foundations exist, but no-GPU audit found enqueue uncertainty, duplicate worker-entry and preterminal library-visibility gaps. No production readiness or first real SONORA generation is claimed.
+- Music generation remains hardOFF. First real model run requires separately scoped approval and current cost/termination/storage checks. No refund or charging system exists.
+
+The original milestone checklist below is a planning baseline, not the current task list. Some pieces are now implemented locally; completion still requires the stated exit criteria and real end-to-end evidence.
+
 ## Milestone 0 — Repository and baseline
 
 - [x] Create public GitHub repository.
