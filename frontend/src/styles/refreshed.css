@@ -11,3 +11,5 @@ body{background:var(--bg);color:var(--text)}button,a,input,textarea,summary{touc
 @media(max-width:760px){.refreshed-shell main{padding-top:28px}.studio-intro h1{font-size:32px}.studio-intro{margin-bottom:22px}.create-heading{margin-bottom:20px}.main-prompt{min-height:120px!important}.quick-options{gap:16px;padding-bottom:20px;margin-bottom:20px}.prompt-caption{margin-bottom:18px}.create-heading h2{font-size:20px}.create-card{padding-top:19px!important}.advanced-settings{margin-top:18px}.advanced-settings>summary{padding:14px 0}.studio-intro>div>p{font-size:12px}}
 
 .player-bar{left:max(24px,calc((100vw - 1200px)/2));right:max(24px,calc((100vw - 1200px)/2));background:#f8f7f3}.backup-panel p,.backup-card p{color:#526071!important}@media(max-width:760px){.player-bar{left:10px;right:10px;bottom:78px}.generate-track,.track-result,.advanced-settings,.draft-card{scroll-margin-bottom:90px}.generate-track{scroll-margin-top:18px}}
+/* Keep the creator credit readable without crowding small phone headers. */
+@media(max-width:500px){.wordmark-label{display:none}.studio-header{gap:12px}.source-link{white-space:nowrap}}
