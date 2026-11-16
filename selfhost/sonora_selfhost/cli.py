@@ -31,6 +31,12 @@ def parser():
     release.add_argument('job_id')
     release.add_argument('--remote-outcome-checked', action='store_true', required=True,
                          help='I checked the provider and accept any remote cost. This does not cancel anything.')
+    cloud = sub.add_parser('modal', help='Experimental own-account Modal setup/session; not GPU-validated.')
+    cloud.add_argument('action', choices=['plan','guide','login','prepare','start','status','connect','stop','reset'])
+    cloud.add_argument('--workspace', help='Exact Modal workspace username to verify before allocating resources.')
+    cloud.add_argument('--accept-compute', action='store_true', help='Use my own active Modal workspace and accept its compute/build/storage charges.')
+    cloud.add_argument('--accept-downloads', action='store_true')
+    cloud.add_argument('--delete-models', action='store_true', help='Delete this Sonora session model Volume after stopped/tasks0 verification.')
     engine = sub.add_parser('engine', help='Pinned local ACE-Step engine bootstrap (experimental).')
     engine.add_argument('action', choices=['plan', 'install', 'start', 'verify'])
     engine.add_argument('--accept-downloads', action='store_true', help='Allow source/dependency/model downloads and local disk use.')
@@ -90,6 +96,9 @@ def main(argv=None):
     root = data_home()
     lock = None
     try:
+        if args.command == 'modal':
+            from .modal_runtime import modal_command
+            return modal_command(args, root)
         if args.command == 'engine':
             from .engine import engine_command
             return engine_command(args, root)

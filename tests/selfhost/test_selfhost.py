@@ -248,6 +248,10 @@ class ServerTests(Base):
         c,s=self.client();r=c.get('/')
         self.assertEqual(r.status_code,200);self.assertNotIn('private-test-key',r.text)
         self.assertIn("frame-ancestors 'none'",r.headers['Content-Security-Policy'])
+    def test_status_reports_installed_version(self):
+        from sonora_selfhost import __version__
+        c,s=self.client();self.login(c)
+        self.assertEqual(c.get('/api/status').json()['version'],__version__)
     def test_auth_required(self):
         c,s=self.client()
         for p in ['/api/status','/api/models','/api/jobs']:self.assertEqual(c.get(p).status_code,401)

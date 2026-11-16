@@ -1,5 +1,6 @@
 """Loopback-only studio. Provider credentials remain on the Python side."""
 from __future__ import annotations
+from . import __version__
 import hmac
 import secrets
 import uuid
@@ -84,7 +85,7 @@ def create_app(store, provider, *, token=None, run_worker=True):
 
     @app.get('/api/status')
     def status():
-        return {**provider.config.public(), 'version': '0.1.0a1',
+        return {**provider.config.public(), 'version': __version__,
                 'format': 'WAV', 'duration_min': 10, 'duration_max': 120,
                 'cancellation_supported': False, 'gpu_verified': False}
 

@@ -1,5 +1,5 @@
-include LICENSE pyproject.toml selfhost/README.md
-recursive-include selfhost/sonora_selfhost *.py *.json *.html *.css *.js
+include LICENSE pyproject.toml selfhost/README.md selfhost/MODAL.md
+recursive-include selfhost/sonora_selfhost *.py *.md *.json *.html *.css *.js
 recursive-include tests/selfhost *.py
 exclude README.md
 exclude tests/test_*.py

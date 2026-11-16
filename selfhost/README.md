@@ -2,13 +2,13 @@
 
 Download Sonora, connect your own music engine, choose an available model, and create music with your own hardware or provider balance. No Google account with the app owner, shared quota, owner API key or prepared owner image is required.
 
-**Status: 0.1.0a1, experimental.** The installable studio and ACE-Step protocol are covered by local/mock tests. The new pinned GPU bootstrap has not yet completed a real GPU generation test. Do not treat installation, model discovery, or checksum verification as proof of working music inference. This is separate from the hosted portfolio demo, which is unchanged.
+**Status: 0.2.0a1, experimental.** The installable studio and ACE-Step protocol are covered by local/mock tests. The new pinned GPU bootstrap has not yet completed a real GPU generation test. Do not treat installation, model discovery, or checksum verification as proof of working music inference. This is separate from the hosted portfolio demo, which is unchanged.
 
 ## Install the studio
 
 Use Python 3.11 or 3.12. The tested client environment is Linux x86_64 with Python 3.12; Windows/macOS client use is not separately verified yet. No Node.js, Modal SDK, torch or GPU dependency is needed to install the studio itself.
 
-Download this repository's source ZIP and extract it, or clone the repository. Open a terminal in that folder:
+Download the wheel or source distribution and extract the latter. For development, clone the full repository. Open a terminal in that folder:
 
 ```sh
 python -m venv .venv
@@ -20,7 +20,7 @@ python -m pip install .
 sonora --help
 ```
 
-A built `sonora_selfhost-0.1.0a1-py3-none-any.whl` can instead be installed with `python -m pip install /path/to/the-wheel.whl`. There is no PyPI publication yet. Do not assume `pip install sonora` installs this project.
+A built `sonora_selfhost-0.2.0a1-py3-none-any.whl` can instead be installed with `python -m pip install /path/to/the-wheel.whl`. There is no PyPI publication yet. Do not assume `pip install sonora` installs this project.
 
 ## Connect an engine you own
 
@@ -38,7 +38,7 @@ Setup asks for the server's origin URL, an optional hidden API key and a model r
 sonora setup --endpoint http://127.0.0.1:8001 --no-key
 ```
 
-For remote access, use an authenticated TLS endpoint under your control. Never expose an unauthenticated ACE-Step server to the internet. An SSH tunnel that terminates at a loopback endpoint is another option you can manage yourself. Sonora does not create a cloud account, provision GPUs, grant credits, or change your provider billing limits.
+For remote access, use an authenticated TLS endpoint under your control. Never expose an unauthenticated ACE-Step server to the internet. An SSH tunnel that terminates at a loopback endpoint is another option you can manage yourself. Normal own-endpoint setup does not provision GPUs. The optional experimental own-account Modal route below explicitly provisions resources only after compute consent. Neither route grants credits, creates an account for you or changes provider billing limits.
 
 Setup and doctor only discover models. They do not submit a task, initialize a new model, or verify your available credits. Failed setup keeps the previous configuration. There is no silent test generation.
 
@@ -103,9 +103,9 @@ Uninstall the client with `python -m pip uninstall sonora-selfhost`. Your librar
 
 Free validation covers clean wheel installation, CLI flow, mock ACE-Step protocol, real local HTTP/browser interaction, WAV decoding, state recovery, security boundaries and packaged asset inspection. Test fixtures are synthetic protocol/audio fixtures, not generated music.
 
-Still required before claiming a working end-to-end GPU route: a clean pinned engine install on a declared GPU/driver, successful real model generation, decoded output/playback and restart checks. Any agent-run paid test requires separate user approval. Own-Modal provisioning and additional provider adapters are not implemented. No free-credit offer is promised.
+Still required before claiming a working end-to-end GPU route: a clean pinned engine install on a declared GPU/driver, successful real model generation, decoded output/playback and restart checks. Paid tests require authority covering their scope and cost. The optional own-Modal route is implemented experimentally but has not been live validated for downloaders. Additional provider adapters are not implemented. No free-credit offer is promised.
 
-Developer tests:
+Developer tests (full repository checkout only, not the minimal wheel/sdist):
 
 ```sh
 python -m pip install -r requirements-dev.txt pytest build
@@ -115,3 +115,7 @@ python -m build
 ```
 
 Official protocol reference: [pinned ACE-Step API](https://github.com/ace-step/ACE-Step-1.5/blob/ca1e85fe9430179831e6bc6be790c332190a3866/docs/en/API.md). Model/license declarations: [Hugging Face model](https://huggingface.co/ACE-Step/Ace-Step1.5/tree/19671f406d603126926c1b7e2adc169acbcade22), [upstream code license](https://github.com/ace-step/ACE-Step-1.5/blob/ca1e85fe9430179831e6bc6be790c332190a3866/LICENSE).
+
+## Experimental own-account Modal candidate
+
+Version 0.2.0a1 adds an optional `[modal]` SDK extra and `sonora modal plan/guide/login/prepare/start/status/connect/stop/reset`. Read the installed `sonora modal guide` or the source-distribution `selfhost/MODAL.md`. This downloader cloud route is GPU-unverified and not yet released. No owner credentials or hosted resources are used.

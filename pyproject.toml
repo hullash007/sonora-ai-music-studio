@@ -4,13 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sonora-selfhost"
-version = "0.1.0a1"
+version = "0.2.0a1"
 description = "A local music studio for your own ACE-Step server"
 readme = "selfhost/README.md"
 requires-python = ">=3.11,<3.13"
 license = "MIT"
 authors = [{name = "Hullash Choudhary"}]
 dependencies = ["fastapi==0.162.5", "httpx==0.28.1", "uvicorn==0.54.0"]
+
+[project.optional-dependencies]
+modal = ["modal==1.6.4"]
 
 [project.scripts]
 sonora = "sonora_selfhost.cli:main"
@@ -24,4 +27,4 @@ where = ["selfhost"]
 include = ["sonora_selfhost*"]
 
 [tool.setuptools.package-data]
-sonora_selfhost = ["static/*.html", "static/*.css", "static/*.js", "upstream-lock.json"]
+sonora_selfhost = ["*.md", "static/*.html", "static/*.css", "static/*.js", "upstream-lock.json"]
