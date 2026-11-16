@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>SONORA by Hullash | Your studio</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<header><a class="brand" href="/" aria-label="Sonora by Hullash - Self-hosted studio"><span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="brand-name">SONORA <small>by Hullash</small></span><span class="edition">SELF-HOSTED</span></a><span class="local"><i></i> On your computer</span></header>
+<main>
+<section class="intro"><p class="eyebrow">YOUR IDEAS. YOUR ENGINE.</p><h1>Make something <br>worth hearing.</h1><p class="lede">A private space for the music in your head. <br>Connected to your server, never a shared credit pool.</p></section>
+<div id="notice" class="notice" role="status" hidden></div>
+<div class="workspace">
+<section class="composer" aria-labelledby="create-title">
+<div class="section-heading"><h2 id="create-title">Create a track</h2><span class="pill">ACE-Step REST</span></div>
+<form id="create-form">
+<label for="prompt">Describe your sound</label><textarea id="prompt" maxlength="4000" rows="4" required placeholder="Warm piano, brushed drums and a slow sunrise. Instrumental, with room to breathe."></textarea>
+<details><summary>Add lyrics <span>optional</span></summary><label class="sr-only" for="lyrics">Lyrics</label><textarea id="lyrics" maxlength="10000" rows="5" placeholder="Add your lyrics, with [Verse] and [Chorus] sections if you like."></textarea></details>
+<div class="choices"><div><label for="model">Music model</label><select id="model" required disabled><option value="">Checking your server...</option></select></div><div><label for="duration">Length</label><select id="duration"><option value="10">10 sec</option><option value="30" selected>30 sec</option><option value="60">1 minute</option><option value="90">1 min 30 sec</option><option value="120">2 minutes</option></select></div></div>
+<label class="consent"><input type="checkbox" id="cost" required><span>Use my own hardware or provider balance for this track. Provider charges may apply, including on failed runs.</span></label>
+<button id="generate" class="primary" type="submit" disabled><span>Generate music</span><span aria-hidden="true">↗</span></button>
+<p class="fine">One track per click. No automatic generation retries.<br>Stopping this studio does not cancel a remote GPU task.</p>
+</form>
+</section>
+<aside class="connection" aria-labelledby="connection-title"><div class="connection-icon" aria-hidden="true">≋</div><p class="eyebrow">CONNECTED ENGINE</p><h2 id="connection-title">Your own setup.</h2><p>Only models available on your ACE-Step server appear here. Sonora does not switch or download models behind the scenes.</p><dl><dt>Server</dt><dd id="endpoint">Not connected</dd><dt>Output</dt><dd>PCM WAV · saved locally</dd><dt>Access</dt><dd>Private to this computer</dd></dl><div class="boundary"><span class="dot"></span><p>Alpha build. Connection checks are not GPU proof. Your first explicit generation tests the full route.</p></div><button type="button" id="refresh" class="secondary">Refresh connection</button><p class="fine">Change server or credentials with <code>sonora setup</code>.</p></aside>
+</div>
+<section class="library" aria-labelledby="library-title"><div class="section-heading"><div><p class="eyebrow">SAVED ON THIS COMPUTER</p><h2 id="library-title">Your tracks</h2></div><span id="track-count" class="count">0 tracks</span></div><div id="jobs" aria-live="polite"><div class="empty"><div class="wave-icon" aria-hidden="true">▂ ▅ ▃ ▇ ▄ ▂</div><h3>Your first track starts here.</h3><p>Describe a sound above. Finished music and job status will appear here.</p></div></div></section>
+<footer><span>SONORA by Hullash <span class="footer-light">/ your studio</span></span><span>No account with the app owner needed.</span></footer>
+</main>
+</body></html>

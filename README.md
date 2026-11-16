@@ -46,11 +46,13 @@ The configured GPU worker has 8 CPU cores and 32 GiB RAM. Job and admission reco
 - Redesign checks cover empty, busy, completed and error states with local fixtures, responsive widths, drafts and project persistence. They do not spend inference credits.
 - Account-isolation tests pass. Live checks used the owner account, not a second person's real Google account.
 
-## Try it on your computer
+## Download and use your own engine
 
-Start with the [step-by-step local setup guide](docs/setup.md). It covers macOS/Linux and Windows, dependencies, building the interface, running the local fixture and troubleshooting. No paid services are needed for that path. The local Generate button creates a two-second WAV test tone, not AI music.
+The independent [SONORA by Hullash self-hosted alpha](selfhost/README.md) is now an installable Python package with bundled browser assets. Run `python -m pip install .`, then `sonora setup`, `sonora doctor` and `sonora start`. Connect your own local or HTTPS ACE-Step REST server, use your own API key if required, and choose from models available on that server. No app-owner Google login, Modal resources or shared credits are used.
 
-Configuration references: [local environment example](.env.example) and [hosted deployment planning inventory](infra/modal/deployment.example.json). Neither contains real credentials.
+**Alpha boundary:** the client, durable jobs/library and protocol are tested with synthetic local fixtures. The new `sonora engine` bootstrap pins upstream source and model checksums for a Linux NVIDIA GPU, but has not passed a clean real-GPU music-generation test. No arbitrary music API support or free provider credits are promised. See the alpha guide before using compute or downloading model files.
+
+For the older hosted interface's development fixture, use the [local UI setup guide](docs/setup.md). That separate fixture creates a two-second WAV test tone, not AI music. Configuration references: [local environment example](.env.example) and [hosted deployment planning inventory](infra/modal/deployment.example.json).
 
 ## Run the checks
 
@@ -70,9 +72,9 @@ npm run build
 
 To explore the local fake studio, run `python scripts/run_local_studio.py --help` from the repository root. This is a development fixture, not live model inference or the deployed Google identity flow.
 
-## Deploying your own copy
+## Reproducing the hosted Modal deployment
 
-**Real-generation self-hosting is not yet reproducible from this repository alone.** The prepared GPU-image builder and model-verification package (`prepare.py`, `source-pins.json`, `model-manifest.json`) are missing. See the [exact remaining setup gaps](docs/setup.md#real-ai-generation-deployment-gap). A fresh account deployment has not been verified.
+**The existing hosted Modal deployment is not yet reproducible from this repository alone.** The prepared GPU-image builder and model-verification package (`prepare.py`, `source-pins.json`, `model-manifest.json`) are missing. See the [exact remaining setup gaps](docs/setup.md#real-ai-generation-deployment-gap). A fresh account deployment has not been verified.
 
 Read [the current release notes](docs/public-release.md) first. The included adapters are sanitized source, not a one-command copy of an existing deployment. Configure your own Google OAuth client, session secret, privacy contact, Modal resources, model/checkpoint pins, budget limits and cutoff. Preserve or migrate existing track history before replacing a running deployment.
 
@@ -80,7 +82,8 @@ The source defaults to 30-second generation unless the accepted duration list is
 
 ## Repository map
 
-- `frontend/`: React interface and frontend tests
+- `selfhost/`: independent installable studio, own-endpoint adapter and experimental pinned GPU bootstrap
+- `frontend/`: hosted React interface and frontend tests
 - `backend/`: API, library, identity and job services
 - `music-engine/`: model integration
 - `infra/`: deployment adapters

@@ -1,0 +1,12 @@
+include LICENSE pyproject.toml selfhost/README.md
+recursive-include selfhost/sonora_selfhost *.py *.json *.html *.css *.js
+recursive-include tests/selfhost *.py
+exclude README.md
+exclude tests/test_*.py
+prune backend
+prune frontend
+prune infra
+prune docs
+prune scripts
+prune owner_runtime
+prune tests/audit
