@@ -1,0 +1,54 @@
+{
+  "status": "Planning example only. Not read by any script. Real-generation build assets are incomplete; see docs/setup.md.",
+  "local_fixture": {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "data_directory": ".local-sonora-data",
+    "password_environment_variable": "SONORA_LOCAL_PASSWORD",
+    "generation": "Two-second WAV tone; no model, Google OAuth, Modal or GPU"
+  },
+  "hosted_deployment_prerequisites": {
+    "modal_workspace": "YOUR_OWN_WORKSPACE",
+    "app_name": "YOUR_UNIQUE_APP_NAME",
+    "https_origin": "https://YOUR_OWN_DEPLOYED_HOST",
+    "prepared_gpu_image_id": "YOUR_OWN_PREPARED_IMAGE_ID_NOT_INCLUDED",
+    "checkpoint_volume": "YOUR_OWN_PROVISIONED_CHECKPOINT_VOLUME",
+    "audio_volume": "YOUR_OWN_AUDIO_VOLUME",
+    "job_dict": "YOUR_OWN_JOB_STATE_DICT",
+    "shared_admission_dict": "YOUR_OWN_SHARED_ADMISSION_DICT",
+    "google_session_dict": "YOUR_OWN_SESSION_DICT",
+    "portal_secret_name": "YOUR_OWN_PROVIDER_SECRET_NAME",
+    "portal_secret_fields": ["PORTAL_PASSWORD"],
+    "privacy_contact": "operator@example.com",
+    "budget_and_cutoff": "Choose explicit limits under your own provider allowance. Existing shared.py constants are release-specific, not reusable defaults.",
+    "missing_build_artifacts": [
+      "/opt/sonora-validation-prep/prepare.py",
+      "/opt/sonora-validation-prep/source-pins.json",
+      "/opt/sonora-validation-prep/model-manifest.json"
+    ]
+  },
+  "environment_names_used_by_current_shared_adapter": {
+    "SONORA_GOOGLE_CLIENT_ID": "YOUR_OWN_GOOGLE_OAUTH_WEB_CLIENT_ID",
+    "SONORA_OWNER_EMAIL": "operator@example.com",
+    "SONORA_VALIDATED_DURATIONS": "30",
+    "SONORA_OWNER_VALIDATE_120": "0",
+    "SONORA_ARCHIVE_GUARD": "YOUR_OWN_EXISTING_ARCHIVE_GUARD",
+    "SONORA_ARCHIVE_RUN_ID": "YOUR_OWN_EXISTING_ARCHIVE_RUN_UUID",
+    "SONORA_ARCHIVE_JOB_ID": "YOUR_OWN_EXISTING_ARCHIVE_JOB_UUID"
+  },
+  "archive_warning": "These archive inputs refer to existing historical records. A fresh install has none. The current adapter needs a deliberate no-archive/bootstrap path before fresh deployment; do not invent IDs or reuse the original operator's records.",
+  "not_configured_by_environment_alone": [
+    "Prepared image build and model/checkpoint provisioning",
+    "Unique application and Modal resource names",
+    "HTTPS origin and OAuth authorized origins",
+    "Provider secret creation and access",
+    "Privacy notice operator identity/contact",
+    "Budget, reservation rate assumptions and cutoff constants",
+    "First-deployment resources and optional archive handling"
+  ],
+  "verification": {
+    "local_fixture": "Tested; see docs/setup.md",
+    "fresh_google_oauth_deployment": "Not verified",
+    "fresh_gpu_inference_deployment": "Not verified; missing build assets"
+  }
+}

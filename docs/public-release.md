@@ -1,3 +1,7 @@
+# Current setup status
+
+Use [setup.md](setup.md) for the tested local no-GPU fixture. The real-generation adapter depends on a prepared image and a verification package (`prepare.py`, `source-pins.json`, `model-manifest.json`) that are not included in this repository. A fresh real-generation install is not yet reproducible from this snapshot. Historical adapter files below are reference, not a shortcut around these missing prerequisites.
+
 # Google studio release
 
 This source snapshot includes Google sign-in, account-owned libraries, guarded shared generation and the music-first customer UI. It is published as a separate release branch; main is unchanged.

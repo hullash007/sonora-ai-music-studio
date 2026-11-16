@@ -1,3 +1,7 @@
+# Historical adapter notes
+
+This file describes an earlier staging stage, not the current Google-sign-in release. For current local setup and the exact real-generation packaging gaps, use [the setup guide](../../docs/setup.md). The [deployment inventory example](deployment.example.json) is not an executable configuration loader. Do not deploy historical adapters as a replacement for the current service.
+
 # SONORA Modal staging source
 
 `sonora_staging.py` defines a separate staging application. It must remain isolated from the currently working production Modal application.

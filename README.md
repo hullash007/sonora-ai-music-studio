@@ -46,6 +46,12 @@ The configured GPU worker has 8 CPU cores and 32 GiB RAM. Job and admission reco
 - Redesign checks cover empty, busy, completed and error states with local fixtures, responsive widths, drafts and project persistence. They do not spend inference credits.
 - Account-isolation tests pass. Live checks used the owner account, not a second person's real Google account.
 
+## Try it on your computer
+
+Start with the [step-by-step local setup guide](docs/setup.md). It covers macOS/Linux and Windows, dependencies, building the interface, running the local fixture and troubleshooting. No paid services are needed for that path. The local Generate button creates a two-second WAV test tone, not AI music.
+
+Configuration references: [local environment example](.env.example) and [hosted deployment planning inventory](infra/modal/deployment.example.json). Neither contains real credentials.
+
 ## Run the checks
 
 Use Python 3.12 for the tested backend environment and a current Node.js environment compatible with the pinned Vite version.
@@ -65,6 +71,8 @@ npm run build
 To explore the local fake studio, run `python scripts/run_local_studio.py --help` from the repository root. This is a development fixture, not live model inference or the deployed Google identity flow.
 
 ## Deploying your own copy
+
+**Real-generation self-hosting is not yet reproducible from this repository alone.** The prepared GPU-image builder and model-verification package (`prepare.py`, `source-pins.json`, `model-manifest.json`) are missing. See the [exact remaining setup gaps](docs/setup.md#real-ai-generation-deployment-gap). A fresh account deployment has not been verified.
 
 Read [the current release notes](docs/public-release.md) first. The included adapters are sanitized source, not a one-command copy of an existing deployment. Configure your own Google OAuth client, session secret, privacy contact, Modal resources, model/checkpoint pins, budget limits and cutoff. Preserve or migrate existing track history before replacing a running deployment.
 

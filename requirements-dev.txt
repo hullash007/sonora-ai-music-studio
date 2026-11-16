@@ -1,4 +1,8 @@
-# Local API tests and fake studio only. No Modal or ACE-Step dependency.
+# Local API tests and fake studio. Modal SDK is needed by the historical
+# owner-adapter import test; installing it does not authenticate or deploy.
+# No ACE-Step/model dependencies are installed.
 fastapi==0.162.5
 httpx==0.28.1
 uvicorn==0.54.0
+
+-r requirements-modal.txt
