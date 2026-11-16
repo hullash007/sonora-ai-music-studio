@@ -536,11 +536,11 @@ def create_app(
 
     @app.get("/assets/app.js")
     def frontend_js():
-        return FileResponse(static_dir / "assets" / "app.js", media_type="text/javascript")
+        return FileResponse(next((static_dir / "assets").glob("app-*.js"), static_dir / "assets" / "app.js"), media_type="text/javascript")
 
     @app.get("/assets/app.css")
     def frontend_css():
-        return FileResponse(static_dir / "assets" / "app.css", media_type="text/css")
+        return FileResponse(next((static_dir / "assets").glob("app-*.css"), static_dir / "assets" / "app.css"), media_type="text/css")
 
     @app.get("/assets/{filename}")
     def frontend_chunk(filename: str):
