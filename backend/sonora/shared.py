@@ -1,6 +1,6 @@
 """Credit-bounded shared admission. Every job has a new immutable single-run guard.
 
-No user quotas. Serialized admission and an atomic durable busy slot prevent a
+Optional new-visitor success quota. Serialized admission and an atomic durable busy slot prevent a
 second in-flight allocation. Reservations fail closed on missing settlement.
 """
 from contextvars import ContextVar
@@ -28,8 +28,8 @@ class ScopedGuard:
  def put(self,key,value,**kwargs):return self.store.put(self._key(key),value,**kwargs)
 
 class SharedAdmission:
- def __init__(self,store,guard,stats,call_state,clock=time.time,allowed_durations=DEFAULT_DURATIONS):
-  self.store=store;self.guard=guard;self.stats=stats;self.call_state=call_state;self.clock=clock;self.allowed_durations=allowed_durations
+ def __init__(self,store,guard,stats,call_state,clock=time.time,allowed_durations=DEFAULT_DURATIONS,quota=None,identity_reader=None):
+  self.store=store;self.guard=guard;self.stats=stats;self.call_state=call_state;self.clock=clock;self.allowed_durations=allowed_durations;self.quota=quota;self.identity_reader=identity_reader
  def lookup(self,run):
   self.guard.select(run);return read_run_config_identity(self.guard)
  def spent(self):
@@ -51,7 +51,8 @@ class SharedAdmission:
    self.store.pop('shared-busy')
  def available(self):
   self.reconcile()
-  return {'available':self.clock()<CLOSES_AT-3600 and self.spent()+RESERVATION<=BUDGET and not self.store.get('shared-busy'),'busy':bool(self.store.get('shared-busy')),'credit_limited':self.spent()+RESERVATION>BUDGET,'expired':self.clock()>=CLOSES_AT-3600,'duration_seconds':30,'supported_durations':list(self.allowed_durations)}
+  quota_status=self.quota.status(self.identity_reader()) if self.quota else None
+  return {'quota':quota_status,'available':(not quota_status or not quota_status.get('limited') or quota_status['remaining']>0) and self.clock()<CLOSES_AT-3600 and self.spent()+RESERVATION<=BUDGET and not self.store.get('shared-busy'),'busy':bool(self.store.get('shared-busy')),'credit_limited':self.spent()+RESERVATION>BUDGET,'expired':self.clock()>=CLOSES_AT-3600,'duration_seconds':30,'supported_durations':list(self.allowed_durations)}
  def admit(self,job,fingerprint):
   from fastapi import HTTPException
   if self.clock()>=CLOSES_AT-3600:raise HTTPException(503,'Music creation is temporarily unavailable. You can still listen to your saved tracks.')
@@ -60,9 +61,15 @@ class SharedAdmission:
   # Fail closed: an unexpected storage error after acquiring busy needs review.
   if self.spent()+RESERVATION>BUDGET:
    self.store.pop('shared-busy');raise HTTPException(503,'Music creation is temporarily unavailable. You can still listen to your saved tracks.')
+  if self.quota:
+   try:self.quota.check(self.identity_reader())
+   except HTTPException:
+    self.store.pop('shared-busy');raise
   self.store.put('credit-reservation:'+job,{'charged_bound':RESERVATION},skip_if_exists=True)
   now=self.clock();run=str(uuid.uuid4());self.guard.select(run)
   if not self.guard.put(RUN_CONFIG_KEY,{'kind':RUN_CONFIG_KIND,'schema_version':1,'run_id':run,'issued_at':now,'expires_at':now+3600,'max_attempts':1},skip_if_exists=True):raise RuntimeError('Duplicate guard')
+  cfg=read_run_config_identity(self.guard)
+  if self.quota:self.quota.reserve(self.identity_reader(),job,cfg)
   return claim_one_attempt(self.guard,job,request_sha256=fingerprint,clock=self.clock)
  def finish(self,job,elapsed):
   # Include full 600-second startup allocation, configured runtime resources,

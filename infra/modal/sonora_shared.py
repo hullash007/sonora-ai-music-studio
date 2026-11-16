@@ -87,6 +87,7 @@ def music_portal():
  from sonora.duration import configured_durations,validate_duration,visible_durations
  allowed_durations=configured_durations(os.environ.get('SONORA_VALIDATED_DURATIONS','30'))
  from sonora.google_auth import principal,current_identity
+ from sonora.quota import VisitorQuota
  def available_durations():return visible_durations(allowed_durations,current_identity.get(),os.environ.get('SONORA_OWNER_VALIDATE_120')=='1')
  guard=ScopedGuard(shared_store)
  def enqueue(job,prompt,lyrics,duration):
@@ -108,7 +109,10 @@ def music_portal():
    st=generate_one.get_current_stats();zero=st.backlog==st.num_running_inputs==st.num_total_runners==0
   return {'call_id':call,'state':state,'zero_activity':zero,'termination_confirmed':zero}
  def no_cancellation_cleanup(*args):raise RuntimeError('Cancellation reason is unverified; output retained')
- manager=SharedAdmission(shared_store,guard,lambda:(lambda st:st.backlog==st.num_running_inputs==st.num_total_runners==0)(generate_one.get_current_stats()),call_state,allowed_durations=allowed_durations)
+ def gpu_idle():
+  st=generate_one.get_current_stats();return st.backlog==st.num_running_inputs==st.num_total_runners==0
+ quota=VisitorQuota(shared_store,gpu_idle,call_state)
+ manager=SharedAdmission(shared_store,guard,gpu_idle,call_state,allowed_durations=allowed_durations,quota=quota,identity_reader=current_identity.get)
  google_client_id=os.environ['SONORA_GOOGLE_CLIENT_ID']
  api=create_app(shared_admission=manager.admit,config_lookup=manager.lookup,private_principal=principal.get,google_auth_enabled=bool(google_client_id),job_store=jobs,enqueue_generation=enqueue,audio_root=AUDIO,reload_audio=audio.reload,password=os.environ.get('PORTAL_PASSWORD',''),model_name='ACE-Step 1.5 - PT/SDPA',guard_store=guard,run_config_reader=lambda:read_run_config_identity(guard),cancel_generation=cancel,generation_termination_confirmed=termination,cleanup_cancelled_generation=no_cancellation_cleanup,generation_call_state=call_state,require_guard=True,generation_enabled=True,public_preview=False,fixed_generation_duration_seconds=None,allowed_generation_durations_seconds=available_durations,archived_run_guards={os.environ['SONORA_ARCHIVE_RUN_ID']:(archive_guard,lambda:read_run_config_identity(archive_guard))})
  # No schema/debug routes exposed on owner portal.
@@ -120,6 +124,7 @@ def music_portal():
   from sonora.google_auth import install_google_auth
   auth_store=modal.Dict.from_name(NAME+'-google-sessions',create_if_missing=True)
   def bind_archive(identity):
+   quota.register(identity)
    if identity.get('role')=='owner':
     job=os.environ['SONORA_ARCHIVE_JOB_ID']
     record=jobs.get(job,{})
