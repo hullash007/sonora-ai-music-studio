@@ -1,80 +1,87 @@
-# SONORA — AI Music Studio
+# SONORA - AI Music Studio
 
-SONORA is an evolving AI-powered music creation platform built around open-weight music generation models, on-demand GPU infrastructure, and agent-compatible workflows.
+A web app that turns a music description into an AI-generated track. Built with React, FastAPI, ACE-Step 1.5 and on-demand Modal GPUs.
 
-The project began with a working ACE-Step 1.5 deployment on Modal: a lightweight CPU-hosted web portal submits asynchronous generation jobs to a separate GPU worker, which generates MP3 audio and stores outputs in persistent storage. SONORA will grow this foundation into a full music studio with a persistent library, richer creative controls, and reliable APIs for both people and AI agents.
+This is the `release/google-studio` source snapshot. It contains the current Google-sign-in studio; `main` and older architecture notes describe earlier stages of the project.
 
-> **Project status:** Early development. The current ACE-Step + Modal generation path is working; the broader SONORA product roadmap is planned and will be implemented incrementally.
+## What works
 
-## Current capabilities
+- A simple create flow: describe the music, choose a length, generate, then listen or download an MP3.
+- Fixed 30, 60, 90 and 120-second generation choices in the deployed profile.
+- Instrumental mode or optional lyrics. Extra genre, mood, instrument and arrangement directions are collapsed by default.
+- Google sign-in with server-verified identity, server-backed sessions and account-owned audio access.
+- A private searchable track library with browser playback and downloads.
+- Browser-local drafts, projects, preferences and validated JSON backup/import.
+- Asynchronous job status, one active GPU job at a time, conservative credit admission, cancellation/reconciliation handling and no automatic model retries.
+- A responsive blue-on-warm-gray interface with desktop navigation and a phone bottom bar.
 
-- Browser-based music prompt submission.
-- Optional lyrics input and configurable duration.
-- ACE-Step 1.5 generation through a Modal GPU worker.
-- Asynchronous job submission and status polling.
-- MP3 output stored in a persistent Modal Volume.
-- Password-protected generation endpoint.
-- Separate CPU web service and on-demand GPU worker.
+Creative directions guide the model. They are not guaranteed audio parameters or a timeline/audio editor. Drafts and projects do not sync across devices. The app does not include stem separation, mastering, collaborative editing or track variations.
 
-See [docs/architecture.md](docs/architecture.md) for the current system and planned evolution.
-
-## Product direction
-
-1. **Create:** Generate instrumental and vocal music from prompts and lyrics.
-2. **Control:** Guide genre, mood, tempo, language, instrumentation, vocals, and duration.
-3. **Library:** Keep generated tracks searchable, playable, and manageable.
-4. **Iterate:** Create variations and manage versions of a track.
-5. **Automate:** Expose stable APIs so an AI agent can create, monitor, evaluate, and retrieve tracks.
-6. **Operate efficiently:** Start GPU compute only when needed, measure generation performance, and control cost.
-
-## Architecture direction
-
-- **Music model:** ACE-Step 1.5 (initial engine).
-- **GPU execution:** Modal on-demand GPU functions.
-- **Current application service:** Python + FastAPI on Modal CPU compute.
-- **Planned frontend:** React / Next.js.
-- **Planned durable application database:** PostgreSQL.
-- **Current audio storage:** Modal Volume.
-- **Version control:** GitHub.
-
-## Repository structure
+## Architecture
 
 ```text
-sonora-ai-music-studio/
-├── backend/          # Application API and domain services (planned)
-├── frontend/         # Studio user interface (planned)
-├── music-engine/     # Model integration and generation workers
-├── docs/             # Architecture, roadmap, and engineering notes
-├── tests/            # Automated tests
-├── .gitignore
-├── LICENSE
-└── README.md
+React / Vite browser client
+        |
+FastAPI web service on Modal CPU
+  |     |                 |
+Google identity      Account-owned audio
+  |                  in persistent storage
+Guarded asynchronous job
+        |
+Single on-demand A10 or L4 worker
+        |
+ACE-Step 1.5 Turbo + 1.7B language model
+        |
+MP3 validation and durable publication
 ```
 
-## Development principles
+The configured GPU worker has 8 CPU cores and 32 GiB RAM. Job and admission records use durable key/value state; model checkpoints and audio use Modal Volumes. No GPU runner is kept warm.
 
-- Preserve the working music-generation path while building the new product.
-- Keep secrets, passwords, tokens, and private configuration out of source control.
-- Separate web/API workloads from GPU inference workloads.
-- Use durable records for jobs and tracks; do not rely on process memory.
-- Make agent-facing operations explicit, validated, and observable.
-- Test changes before deploying them to the live service.
-- Document what is implemented separately from what is planned.
+## Verification boundaries
 
-## Getting started
+- 229 Python tests and 39 frontend tests pass for this release.
+- Live end-to-end generation has been checked at 30 and 120 seconds, including saved audio and authenticated playback.
+- 60 and 90 seconds have offline parameter, admission, media and UI checks, not separate live model runs.
+- The measured 120-second output was 120.024 seconds. A single run is not a generation-speed or music-quality guarantee.
+- Redesign checks cover empty, busy, completed and error states with local fixtures, responsive widths, drafts and project persistence. They do not spend inference credits.
+- Account-isolation tests pass. Live checks used the owner account, not a second person's real Google account.
 
-The current deployed Modal implementation is being migrated into this repository after source review and configuration sanitization. Deployment instructions will be added after the source is organized and secrets are externalized.
+## Run the checks
 
-Never commit live credentials or the current studio password. Use Modal Secrets or environment variables for sensitive configuration.
+Use Python 3.12 for the tested backend environment and a current Node.js environment compatible with the pinned Vite version.
 
-## Roadmap
+```sh
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements-dev.txt
+PYTHONPATH=backend python -m unittest discover -s tests
 
-See [docs/roadmap.md](docs/roadmap.md).
+cd frontend
+npm ci
+npm test
+npm run build
+```
 
-## License
+To explore the local fake studio, run `python scripts/run_local_studio.py --help` from the repository root. This is a development fixture, not live model inference or the deployed Google identity flow.
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+## Deploying your own copy
 
-## Acknowledgements
+Read [the current release notes](docs/public-release.md) first. The included adapters are sanitized source, not a one-command copy of an existing deployment. Configure your own Google OAuth client, session secret, privacy contact, Modal resources, model/checkpoint pins, budget limits and cutoff. Preserve or migrate existing track history before replacing a running deployment.
 
-SONORA builds on the open-source [ACE-Step 1.5](https://github.com/ACE-Step/ACE-Step-1.5) project. Model and dependency licenses remain those of their respective owners; review them before redistributing models or generated assets.
+The source defaults to 30-second generation unless the accepted duration list is configured. Do not enable longer lengths or widen credit limits without verifying the runtime, output checks and cost controls for your deployment. A fixed application budget is not a real-time provider credit meter; billing can lag.
+
+## Repository map
+
+- `frontend/`: React interface and frontend tests
+- `backend/`: API, library, identity and job services
+- `music-engine/`: model integration
+- `infra/`: deployment adapters
+- `tests/`: backend and safety regression tests
+- `scripts/`: local development and verification helpers
+- `docs/`: current release notes plus historical design documents
+
+## License and upstream model
+
+Application source is provided under the repository's [MIT license](LICENSE). Model weights, dependencies and generated content have their own applicable terms. Review those separately before redistribution or commercial use.
+
+Music generation uses [ACE-Step 1.5](https://github.com/ace-step/ACE-Step-1.5). SONORA supplies the application interface, account boundaries, job workflow and deployment integration around that engine.
