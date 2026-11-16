@@ -544,11 +544,11 @@ def create_app(
 
     @app.get("/assets/{filename}")
     def frontend_chunk(filename: str):
-        if not re.fullmatch(r"[A-Za-z0-9_-]+\.js",filename):
+        if not re.fullmatch(r"[A-Za-z0-9_-]+\.(?:js|css)",filename):
             raise HTTPException(404,"Not found")
         target=static_dir/"assets"/filename
         if not target.is_file():raise HTTPException(404,"Not found")
-        return FileResponse(target,media_type="application/javascript")
+        return FileResponse(target,media_type="text/css" if filename.endswith(".css") else "application/javascript")
 
     @app.get("/", response_class=HTMLResponse)
     def home() -> str:
