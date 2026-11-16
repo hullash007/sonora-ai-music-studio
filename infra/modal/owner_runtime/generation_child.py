@@ -5,7 +5,9 @@ install()
 PROJECT_DIR='/opt/ACE-Step-1.5'
 CHECKPOINT_DIR=str(Path(PROJECT_DIR+'/checkpoints').resolve())
 AUDIO_DIR='/mnt/sonora-private-audio'
-VALIDATION_DURATION_SECONDS=30
+sys.path.insert(0,'/opt/sonora/backend')
+from sonora.duration import child_duration
+REQUESTED_DURATION_SECONDS=child_duration(sys.argv)
 job_id=sys.argv[1]
 prompt=sys.argv[2]
 lyrics=sys.argv[3]
@@ -102,13 +104,13 @@ assert_no_download_attempts()
 job_dir = os.path.join(AUDIO_DIR, "jobs", job_id)
 os.makedirs(job_dir, exist_ok=True)
 
-update_progress("Generating 30-second validation track")
+update_progress("Generating requested-length track")
 
 params = GenerationParams(
     task_type="text2music",
     caption=prompt,
     lyrics=lyrics if lyrics.strip() else "[Instrumental]",
-    duration=float(VALIDATION_DURATION_SECONDS),
+    duration=float(REQUESTED_DURATION_SECONDS),
     vocal_language="unknown",
     thinking=True,
     use_cot_metas=True,

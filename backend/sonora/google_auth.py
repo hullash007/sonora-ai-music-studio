@@ -1,6 +1,7 @@
 """Verified Google identity at the HTTP edge."""
 from contextvars import ContextVar
 principal = ContextVar("sonora_principal", default=None)
+current_identity = ContextVar("sonora_identity", default=None)
 import base64
 import hashlib
 import hmac
@@ -62,6 +63,7 @@ def install_google_auth(app, *, client_id, origin, owner_email, password, store,
             if not identity:
                 return JSONResponse({'detail': 'Sign in with Google'}, status_code=401)
             principal.set(identity['sub'])
+            current_identity.set(identity)
             if request.method not in {'GET', 'HEAD'} and request.headers.get('origin') != origin:
                 return JSONResponse({'detail': 'Request origin not allowed'}, status_code=403)
             request.scope['headers'].append((b'x-portal-password', password.encode()))

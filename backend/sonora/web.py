@@ -56,6 +56,7 @@ def create_app(
     generation_enabled: bool = False,
     public_preview: bool = False,
     fixed_generation_duration_seconds: int | None = None,
+    allowed_generation_durations_seconds: tuple[int, ...] | Callable | None = None,
     generation_termination_confirmed: Callable[[str], dict[str, Any]] | None = None,
     cleanup_cancelled_generation: Callable[[str, str, str], Any] | None = None,
     generation_call_state: Callable[[str], str] | None = None,
@@ -638,6 +639,10 @@ def create_app(
                     f"{fixed_generation_duration_seconds} seconds"
                 ),
             )
+
+        permitted_durations = allowed_generation_durations_seconds() if callable(allowed_generation_durations_seconds) else allowed_generation_durations_seconds
+        if permitted_durations is not None and duration not in permitted_durations:
+            raise HTTPException(400, "Choose an available track length: " + ", ".join(map(str, permitted_durations)) + " seconds.")
 
         run_config = None
         if guard_enabled:

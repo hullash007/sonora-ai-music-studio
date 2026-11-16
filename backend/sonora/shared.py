@@ -5,6 +5,7 @@ second in-flight allocation. Reservations fail closed on missing settlement.
 """
 from contextvars import ContextVar
 import math,time,uuid
+from sonora.duration import DEFAULT_DURATIONS
 from sonora.guard import RUN_CONFIG_KEY,RUN_CONFIG_KIND,read_run_config_identity,claim_one_attempt
 
 # Explicitly expires before the verified November 2026 credit cycle rolls over.
@@ -27,8 +28,8 @@ class ScopedGuard:
  def put(self,key,value,**kwargs):return self.store.put(self._key(key),value,**kwargs)
 
 class SharedAdmission:
- def __init__(self,store,guard,stats,call_state,clock=time.time):
-  self.store=store;self.guard=guard;self.stats=stats;self.call_state=call_state;self.clock=clock
+ def __init__(self,store,guard,stats,call_state,clock=time.time,allowed_durations=DEFAULT_DURATIONS):
+  self.store=store;self.guard=guard;self.stats=stats;self.call_state=call_state;self.clock=clock;self.allowed_durations=allowed_durations
  def lookup(self,run):
   self.guard.select(run);return read_run_config_identity(self.guard)
  def spent(self):
@@ -50,7 +51,7 @@ class SharedAdmission:
    self.store.pop('shared-busy')
  def available(self):
   self.reconcile()
-  return {'available':self.clock()<CLOSES_AT-3600 and self.spent()+RESERVATION<=BUDGET and not self.store.get('shared-busy'),'busy':bool(self.store.get('shared-busy')),'credit_limited':self.spent()+RESERVATION>BUDGET,'expired':self.clock()>=CLOSES_AT-3600,'duration_seconds':30}
+  return {'available':self.clock()<CLOSES_AT-3600 and self.spent()+RESERVATION<=BUDGET and not self.store.get('shared-busy'),'busy':bool(self.store.get('shared-busy')),'credit_limited':self.spent()+RESERVATION>BUDGET,'expired':self.clock()>=CLOSES_AT-3600,'duration_seconds':30,'supported_durations':list(self.allowed_durations)}
  def admit(self,job,fingerprint):
   from fastapi import HTTPException
   if self.clock()>=CLOSES_AT-3600:raise HTTPException(503,'Music creation is temporarily unavailable. You can still listen to your saved tracks.')
