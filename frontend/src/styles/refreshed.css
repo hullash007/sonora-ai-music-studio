@@ -13,3 +13,20 @@ body{background:var(--bg);color:var(--text)}button,a,input,textarea,summary{touc
 .player-bar{left:max(24px,calc((100vw - 1200px)/2));right:max(24px,calc((100vw - 1200px)/2));background:#f8f7f3}.backup-panel p,.backup-card p{color:#526071!important}@media(max-width:760px){.player-bar{left:10px;right:10px;bottom:78px}.generate-track,.track-result,.advanced-settings,.draft-card{scroll-margin-bottom:90px}.generate-track{scroll-margin-top:18px}}
 /* Keep the creator credit readable without crowding small phone headers. */
 @media(max-width:500px){.wordmark-label{display:none}.studio-header{gap:12px}.source-link{white-space:nowrap}}
+/* Sign-in card: consistent spacing and alignment */
+.auth-screen{padding:24px}
+.auth-screen .auth-card{width:min(440px,100%);padding:40px;border-radius:16px;box-shadow:0 1px 2px rgba(37,51,71,.06),0 12px 32px rgba(37,51,71,.08);text-align:left}
+.auth-card .auth-brand{display:flex;align-items:center;gap:12px}
+.auth-card .auth-mark{display:flex;align-items:center;gap:2px;height:22px;color:var(--accent)}
+.auth-card .auth-mark i{display:block;width:3px;border-radius:2px;background:currentColor;height:10px}
+.auth-card .auth-mark i:nth-child(2){height:20px}.auth-card .auth-mark i:nth-child(3){height:15px}.auth-card .auth-mark i:nth-child(4){height:8px}
+.auth-card .eyebrow{font-size:12px;font-weight:600;letter-spacing:2px;line-height:1}
+.auth-card h1{font-size:36px;line-height:1.12;font-weight:600;letter-spacing:-.02em;margin:28px 0 12px;color:var(--text)}
+.auth-card .auth-lead{font-size:16px;line-height:1.5;margin:0 0 28px;color:var(--muted)}
+.auth-card .google-signin{margin:0 0 20px;min-height:44px;width:100%;max-width:100%;overflow:hidden}
+.auth-card .google-signin>div{width:100%}
+.auth-card .auth-note{font-size:14px;line-height:1.5;margin:0;color:var(--muted)}
+.auth-card .auth-footer{margin-top:28px;padding-top:20px;border-top:1px solid var(--border);font-size:13px}
+.auth-card .auth-footer a{color:var(--muted);text-decoration:none}.auth-card .auth-footer a:hover{color:var(--accent);text-decoration:underline}
+.auth-card p[role="alert"]{margin:16px 0 0;font-size:14px}.auth-card .button{margin-top:16px}
+@media(max-width:480px){.auth-screen .auth-card{padding:28px 24px}.auth-card h1{font-size:30px;margin-top:24px}.auth-card .auth-lead{font-size:15px;margin-bottom:24px}}
